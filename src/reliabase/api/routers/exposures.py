@@ -15,6 +15,10 @@ def _validate_interval(start, end):
         raise HTTPException(status_code=400, detail="end_time must be after start_time")
 
 
+def _normalize_dt(dt):
+    return dt.replace(tzinfo=None) if getattr(dt, "tzinfo", None) else dt
+
+
 def _compute_hours(payload: schemas.ExposureLogBase) -> float:
     if payload.hours and payload.hours > 0:
         return payload.hours
@@ -45,10 +49,14 @@ def list_exposures(session: SessionDep, offset: int = 0, limit: int = 100, asset
 
 @router.post("/", response_model=schemas.ExposureLogRead, status_code=201)
 def create_exposure(payload: schemas.ExposureLogCreate, session: SessionDep):
-    _validate_interval(payload.start_time, payload.end_time)
-    _check_overlap(session, payload.asset_id, payload.start_time, payload.end_time)
+    start = _normalize_dt(payload.start_time)
+    end = _normalize_dt(payload.end_time)
+    _validate_interval(start, end)
+    _check_overlap(session, payload.asset_id, start, end)
     hours = _compute_hours(payload)
     log = models.ExposureLog(**payload.model_dump())
+    log.start_time = start
+    log.end_time = end
     log.hours = hours
     session.add(log)
     session.commit()
@@ -71,8 +79,8 @@ def update_exposure(log_id: int, payload: schemas.ExposureLogUpdate, session: Se
         raise HTTPException(status_code=404, detail="Exposure not found")
     data = payload.model_dump(exclude_unset=True)
     if "start_time" in data or "end_time" in data:
-        start = data.get("start_time", log.start_time)
-        end = data.get("end_time", log.end_time)
+        start = _normalize_dt(data.get("start_time", log.start_time))
+        end = _normalize_dt(data.get("end_time", log.end_time))
         _validate_interval(start, end)
         _check_overlap(session, log.asset_id, start, end, exclude_id=log.id)
         log.start_time = start

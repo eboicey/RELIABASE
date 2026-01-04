@@ -65,8 +65,11 @@ def list_part_installs(part_id: int, session: SessionDep):
 
 
 def _validate_install_times(install_time, remove_time):
-    if remove_time is not None and remove_time <= install_time:
-        raise HTTPException(status_code=400, detail="remove_time must be after install_time")
+    if remove_time is not None:
+        base_install = install_time.replace(tzinfo=None) if getattr(install_time, "tzinfo", None) else install_time
+        base_remove = remove_time.replace(tzinfo=None) if getattr(remove_time, "tzinfo", None) else remove_time
+        if base_remove <= base_install:
+            raise HTTPException(status_code=400, detail="remove_time must be after install_time")
 
 
 @router.post("/{part_id}/installs", response_model=schemas.PartInstallRead, status_code=201)

@@ -1,0 +1,5 @@
+id,name,serial,notes,type,in_service_date
+1,Compressor A,COMP-A-01,,compressor,
+2,Pump B,PUMP-B-02,,pump,
+3,Compressor A,COMP-A-01,,compressor,
+4,Pump B,PUMP-B-02,,pump,
