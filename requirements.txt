@@ -1,0 +1,18 @@
+fastapi==0.99.1
+uvicorn[standard]==0.23.2
+sqlmodel==0.0.16
+pydantic<2.0
+pandas>=2.1
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.7
+reportlab>=4.0
+python-dotenv>=1.0
+typer>=0.9
+
+# testing
+pytest>=7.4
+pytest-asyncio>=0.23
+httpx>=0.24
+faker>=19
+freezegun>=1.2
