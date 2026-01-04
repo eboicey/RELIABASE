@@ -5,6 +5,7 @@ import { Button } from "../components/Button";
 import { exportAssets, exportEvents, exportExposures, exportFailureModes, exportParts } from "../utils/csv";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
+import { useCallback } from "react";
 
 export default function Operations() {
   const { data: health, isLoading: healthLoading, isError: healthError } = useQuery({ queryKey: ["health"], queryFn: getHealth });
@@ -13,6 +14,9 @@ export default function Operations() {
   const { data: exposures } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
   const { data: modes } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 500 }) });
   const { data: parts } = useQuery({ queryKey: ["parts"], queryFn: () => listParts({ limit: 500 }) });
+  const copyCommand = useCallback((cmd: string) => {
+    void navigator.clipboard?.writeText(cmd);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -39,9 +43,23 @@ export default function Operations() {
 
       <Card title="Demo + report" description="Run backend CLIs until HTTP endpoints exist for these actions.">
         <ol className="list-decimal list-inside space-y-2 text-sm text-slate-300">
-          <li>Seed demo: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code></li>
-          <li>Generate reliability packet: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code></li>
-          <li>CSV import (backend): use `reliabase.io.csv_io` helpers or extend API to add upload endpoints.</li>
+          <li className="flex items-center gap-3">
+            <span>Seed demo:</span>
+            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code>
+            <Button size="sm" variant="ghost" onClick={() => copyCommand("python -m reliabase.seed_demo")}>Copy</Button>
+          </li>
+          <li className="flex items-center gap-3">
+            <span>Generate reliability packet:</span>
+            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => copyCommand("python -m reliabase.make_report --asset-id 1 --output-dir examples")}
+            >
+              Copy
+            </Button>
+          </li>
+          <li>CSV import (backend): use reliabase.io.csv_io helpers or extend API to add upload endpoints.</li>
         </ol>
         <p className="text-xs text-slate-400 mt-3">
           If you want UI-based CSV import or server-side report generation, expose API endpoints and we will wire them here.

@@ -4,11 +4,16 @@ import { Card } from "../components/Card";
 import { Stat } from "../components/Stat";
 import { Table, Th, Td } from "../components/Table";
 import { format } from "date-fns";
+import { Button } from "../components/Button";
+import { useCallback } from "react";
 
 export default function Dashboard() {
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 200 }) });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 200 }) });
   const { data: exposures } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 200 }) });
+  const copyCommand = useCallback((cmd: string) => {
+    void navigator.clipboard?.writeText(cmd);
+  }, []);
 
   const totalHours = exposures?.reduce((sum, log) => sum + (log.hours ?? 0), 0) ?? 0;
   const failureCount = events?.filter((e) => e.event_type === "failure").length ?? 0;
@@ -61,9 +66,21 @@ export default function Dashboard() {
 
       <Card title="Next steps" description="Run backend then use the left nav to manage assets, exposures, events, parts, and failure modes.">
         <ol className="list-decimal list-inside space-y-2 text-sm text-slate-300">
-          <li>Start backend: <code className="bg-slate-800 px-2 py-1 rounded">uvicorn reliabase.api.main:app --reload</code></li>
-          <li>Seed demo: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code></li>
-          <li>Generate report: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code></li>
+          <li className="flex items-center gap-3">
+            <span>Start backend:</span>
+            <code className="bg-slate-800 px-2 py-1 rounded">uvicorn reliabase.api.main:app --reload</code>
+            <Button size="sm" variant="ghost" onClick={() => copyCommand("uvicorn reliabase.api.main:app --reload")}>Copy</Button>
+          </li>
+          <li className="flex items-center gap-3">
+            <span>Seed demo:</span>
+            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code>
+            <Button size="sm" variant="ghost" onClick={() => copyCommand("python -m reliabase.seed_demo")}>Copy</Button>
+          </li>
+          <li className="flex items-center gap-3">
+            <span>Generate report:</span>
+            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code>
+            <Button size="sm" variant="ghost" onClick={() => copyCommand("python -m reliabase.make_report --asset-id 1 --output-dir examples")}>Copy</Button>
+          </li>
           <li>Use UI to CRUD assets/exposures/events, track parts installs, and capture failure details.</li>
         </ol>
       </Card>

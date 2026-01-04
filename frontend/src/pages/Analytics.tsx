@@ -1,33 +1,101 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { listEvents, listExposures } from "../api/endpoints";
+import { useMemo, useState } from "react";
+import { listAssets, listEvents, listExposures, listFailureModes, listEventDetails } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Stat } from "../components/Stat";
 import { Table, Th, Td } from "../components/Table";
+import { Button } from "../components/Button";
+import { Bar } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from "chart.js";
 import { format } from "date-fns";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
 
 export default function Analytics() {
+  const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
   const { data: events, isLoading: eventsLoading, isError: eventsError } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 500 }) });
   const { data: exposures, isLoading: exposuresLoading, isError: exposuresError } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
+  const { data: failureModes } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 500 }) });
+  const { data: eventDetails } = useQuery({ queryKey: ["event-details"], queryFn: () => listEventDetails({ limit: 500 }) });
+  const [selectedAssetId, setSelectedAssetId] = useState<number | "all">("all");
+
+  const filtered = useMemo(() => {
+    const assetFilter = selectedAssetId;
+    const eventsFiltered = assetFilter === "all" ? events ?? [] : (events ?? []).filter((e) => e.asset_id === assetFilter);
+    const exposuresFiltered = assetFilter === "all" ? exposures ?? [] : (exposures ?? []).filter((l) => l.asset_id === assetFilter);
+    return { eventsFiltered, exposuresFiltered };
+  }, [events, exposures, selectedAssetId]);
 
   const { failureCount, mtbfHours, mttrHours, availability } = useMemo(() => {
-    const failureEvents = (events ?? []).filter((e) => e.event_type === "failure");
-    const totalExposure = (exposures ?? []).reduce((sum, l) => sum + (l.hours ?? 0), 0);
+    const failureEvents = filtered.eventsFiltered.filter((e) => e.event_type === "failure");
+    const totalExposure = filtered.exposuresFiltered.reduce((sum, l) => sum + (l.hours ?? 0), 0);
     const totalDowntimeHrs = failureEvents.reduce((sum, e) => sum + ((e.downtime_minutes ?? 0) / 60), 0);
     const failCount = failureEvents.length;
     const mtbf = failCount > 0 ? totalExposure / failCount : totalExposure;
     const mttr = failCount > 0 ? totalDowntimeHrs / failCount : 0;
     const avail = mtbf + mttr > 0 ? mtbf / (mtbf + mttr) : 1;
     return { failureCount: failCount, mtbfHours: mtbf, mttrHours: mttr, availability: avail };
-  }, [events, exposures]);
+  }, [filtered]);
+
+  const failureModePareto = useMemo(() => {
+    if (!eventDetails || !failureModes) return [] as { name: string; count: number }[];
+    const assetEvents = new Map((events ?? []).map((e) => [e.id, e]));
+    const counts: Record<number, number> = {};
+    eventDetails.forEach((detail) => {
+      const evt = assetEvents.get(detail.event_id);
+      if (!evt) return;
+      if (selectedAssetId !== "all" && evt.asset_id !== selectedAssetId) return;
+      counts[detail.failure_mode_id] = (counts[detail.failure_mode_id] ?? 0) + 1;
+    });
+    return failureModes
+      .map((fm) => ({ name: fm.name, count: counts[fm.id!] ?? 0 }))
+      .filter((row) => row.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [eventDetails, failureModes, events, selectedAssetId]);
+
+  const copyCommand = useCallback((cmd: string) => {
+    void navigator.clipboard?.writeText(cmd);
+  }, []);
+
+  const paretoChart = useMemo(() => {
+    if (failureModePareto.length === 0) return null;
+    return {
+      labels: failureModePareto.map((row) => row.name),
+      datasets: [
+        {
+          label: "Count",
+          data: failureModePareto.map((row) => row.count),
+          backgroundColor: "rgba(94, 234, 212, 0.7)",
+          borderColor: "rgba(94, 234, 212, 1)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [failureModePareto]);
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div>
+          <label className="text-sm text-slate-200">Asset filter</label>
+          <select
+            className="mt-1 w-56 rounded-md border border-slate-700 bg-ink-900 px-3 py-2 text-sm"
+            value={selectedAssetId === "all" ? "all" : selectedAssetId}
+            onChange={(e) => setSelectedAssetId(e.target.value === "all" ? "all" : Number(e.target.value))}
+          >
+            <option value="all">All assets</option>
+            {(assets ?? []).map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                #{asset.id} — {asset.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
         <Stat label="Failures" value={failureCount.toString()} hint="Events where type=failure" />
-        <Stat label="Total exposure (h)" value={((exposures ?? []).reduce((s, l) => s + (l.hours ?? 0), 0)).toFixed(1)} />
+        <Stat label="Total exposure (h)" value={filtered.exposuresFiltered.reduce((s, l) => s + (l.hours ?? 0), 0).toFixed(1)} />
         <Stat label="MTBF (h)" value={mtbfHours.toFixed(2)} hint="Exposure hours / failures" />
         <Stat label="MTTR (h)" value={mttrHours.toFixed(2)} hint="Downtime per failure" />
       </div>
@@ -42,7 +110,7 @@ export default function Analytics() {
       <Card title="Failure timeline" description="Latest 20 failure events sorted by time">
         {(eventsLoading || exposuresLoading) && <Spinner />}
         {(eventsError || exposuresError) && <Alert tone="danger">Could not load data for analytics.</Alert>}
-        {events && events.length > 0 ? (
+        {filtered.eventsFiltered && filtered.eventsFiltered.length > 0 ? (
           <Table>
             <thead>
               <tr>
@@ -53,7 +121,7 @@ export default function Analytics() {
               </tr>
             </thead>
             <tbody>
-              {events
+              {filtered.eventsFiltered
                 .filter((e) => e.event_type === "failure")
                 .slice()
                 .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
@@ -73,13 +141,60 @@ export default function Analytics() {
         ) : null}
       </Card>
 
+      <Card title="Failure mode Pareto" description="Counts of failure modes in event details" actions={<span className="text-xs text-slate-400">GET /event-details</span>}>
+        {eventDetails === undefined && <Spinner />}
+        {failureModePareto.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Failure mode</Th>
+                  <Th>Count</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {failureModePareto.map((row) => (
+                  <tr key={row.name} className="odd:bg-ink-900">
+                    <Td>{row.name}</Td>
+                    <Td>{row.count}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            {paretoChart && (
+              <div className="bg-ink-900/50 rounded-md p-2">
+                <Bar data={paretoChart} options={{ plugins: { legend: { display: false } }, scales: { y: { ticks: { precision: 0 } } } }} />
+              </div>
+            )}
+          </div>
+        ) : eventDetails && eventDetails.length === 0 ? (
+          <p className="text-sm text-slate-400">Add failure details to populate Pareto.</p>
+        ) : null}
+      </Card>
+
       <Card title="How to get Weibull & PDF" description="Backend already supports full reporting; run CLI until an API endpoint exists.">
         <ol className="list-decimal list-inside space-y-2 text-sm text-slate-300">
-          <li>Seed demo data: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code></li>
-          <li>Generate report: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code></li>
+          <li className="flex items-center gap-3">
+            <span>Seed demo data:</span>
+            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code>
+            <Button size="sm" variant="ghost" onClick={() => copyCommand("python -m reliabase.seed_demo")}>Copy</Button>
+          </li>
+          <li className="flex items-center gap-3">
+            <span>Generate report:</span>
+            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => copyCommand("python -m reliabase.make_report --asset-id 1 --output-dir examples")}
+            >
+              Copy
+            </Button>
+          </li>
           <li>Open the PDF and PNGs from <code className="bg-slate-800 px-2 py-1 rounded">examples/</code></li>
         </ol>
       </Card>
     </div>
   );
 }
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
