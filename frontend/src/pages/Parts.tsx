@@ -7,6 +7,8 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 import {
   createPart,
   createPartInstall,
@@ -32,7 +34,7 @@ type InstallForm = z.infer<typeof installSchema>;
 
 export default function Parts() {
   const queryClient = useQueryClient();
-  const { data: parts } = useQuery({ queryKey: ["parts"], queryFn: () => listParts({ limit: 200 }) });
+  const { data: parts, isLoading: partsLoading, isError: partsError } = useQuery({ queryKey: ["parts"], queryFn: () => listParts({ limit: 200 }) });
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 200 }) });
   const [selectedPartId, setSelectedPartId] = useState<number | null>(null);
 
@@ -101,6 +103,8 @@ export default function Parts() {
           </div>
         </form>
 
+        {partsLoading && <Spinner />}
+        {partsError && <Alert tone="danger">Could not load parts.</Alert>}
         {parts && parts.length > 0 ? (
           <Table className="mt-4">
             <thead>
@@ -133,9 +137,9 @@ export default function Parts() {
               ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !partsLoading ? (
           <EmptyState title="No parts" message="Create parts to track install/remove windows." icon="📦" />
-        )}
+        ) : null}
       </Card>
 
       <Card
@@ -187,6 +191,8 @@ export default function Parts() {
         </form>
         {createInstallMutation.isError && <p className="text-sm text-red-400 mt-2">Could not create install.</p>}
 
+        {installsQuery.isLoading && <Spinner />}
+        {installsQuery.isError && <Alert tone="danger">Could not load installs.</Alert>}
         {selectedPartId && installsQuery.data && installsQuery.data.length > 0 ? (
           <Table className="mt-4">
             <thead>
@@ -218,13 +224,13 @@ export default function Parts() {
               ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !installsQuery.isLoading ? (
           <EmptyState
             title="No installs"
             message={selectedPartId ? "Log install/remove cycles for this part." : "Pick a part to view installs."}
             icon="🛠"
           />
-        )}
+        ) : null}
       </Card>
     </div>
   );

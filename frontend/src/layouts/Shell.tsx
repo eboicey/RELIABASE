@@ -1,6 +1,8 @@
 import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { useQuery } from "@tanstack/react-query";
+import { getHealth } from "../api/endpoints";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: "⏲" },
@@ -19,6 +21,7 @@ interface Props {
 }
 
 export function Shell({ children }: Props) {
+  const { data: health, isLoading: healthLoading } = useQuery({ queryKey: ["health"], queryFn: getHealth });
   return (
     <div className="min-h-screen grid grid-cols-[260px_1fr] bg-ink-900 text-slate-100">
       <aside className="border-r border-slate-800 bg-ink-800/80 backdrop-blur">
@@ -56,8 +59,16 @@ export function Shell({ children }: Props) {
             <h1 className="text-xl font-display text-white">Operations</h1>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            Backend expected at <code className="px-2 py-1 bg-slate-800 rounded text-slate-200">{import.meta.env.VITE_API_URL ?? "http://localhost:8000"}</code>
+            <span
+              className={clsx(
+                "h-2 w-2 rounded-full",
+                healthLoading ? "bg-amber-400 animate-pulse" : health?.status === "ok" ? "bg-emerald-400" : "bg-red-400",
+              )}
+            />
+            <span className="hidden sm:inline">
+              Backend {healthLoading ? "checking" : health?.status === "ok" ? "online" : "unreachable"}
+            </span>
+            <code className="px-2 py-1 bg-slate-800 rounded text-slate-200">{import.meta.env.VITE_API_URL ?? "http://localhost:8000"}</code>
           </div>
         </header>
         <div className="px-8 py-6 max-w-6xl mx-auto space-y-6">{children}</div>

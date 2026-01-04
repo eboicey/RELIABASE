@@ -7,6 +7,8 @@ import { Card } from "../components/Card";
 import { Input } from "../components/Input";
 import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 import { createEvent, deleteEvent, listAssets, listEvents } from "../api/endpoints";
 import { format } from "date-fns";
 
@@ -28,7 +30,7 @@ const EVENT_TYPES = [
 
 export default function Events() {
   const queryClient = useQueryClient();
-  const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 400 }) });
+  const { data: events, isLoading, isError } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 400 }) });
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 200 }) });
 
   const form = useForm<EventForm>({
@@ -102,6 +104,8 @@ export default function Events() {
       </Card>
 
       <Card title="Events" description="Filter, edit, and delete" actions={<span className="text-xs text-slate-400">GET /events/</span>}>
+        {isLoading && <Spinner />}
+        {isError && <Alert tone="danger">Could not load events.</Alert>}
         {events && events.length > 0 ? (
           <Table>
             <thead>
@@ -140,9 +144,9 @@ export default function Events() {
                 ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !isLoading ? (
           <EmptyState title="No events" message="Log a failure/maintenance/inspection to see trend." icon="📅" />
-        )}
+        ) : null}
       </Card>
     </div>
   );

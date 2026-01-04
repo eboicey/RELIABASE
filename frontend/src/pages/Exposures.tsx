@@ -8,6 +8,8 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 import { format } from "date-fns";
 
 const exposureSchema = z.object({
@@ -22,7 +24,7 @@ type ExposureForm = z.infer<typeof exposureSchema>;
 
 export default function Exposures() {
   const queryClient = useQueryClient();
-  const { data: exposures } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
+  const { data: exposures, isLoading, isError } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 200 }) });
 
   const form = useForm<ExposureForm>({
@@ -89,6 +91,8 @@ export default function Exposures() {
       </Card>
 
       <Card title="Exposure logs" description="Validate overlaps and durations." actions={<span className="text-xs text-slate-400">GET /exposures/</span>}>
+        {isLoading && <Spinner />}
+        {isError && <Alert tone="danger">Could not load exposures.</Alert>}
         {exposures && exposures.length > 0 ? (
           <Table>
             <thead>
@@ -127,9 +131,9 @@ export default function Exposures() {
                 ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !isLoading ? (
           <EmptyState title="No exposure logs" message="Log operating hours to power MTBF/availability." icon="⏳" />
-        )}
+        ) : null}
       </Card>
     </div>
   );

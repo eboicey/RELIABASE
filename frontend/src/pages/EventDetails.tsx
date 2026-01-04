@@ -7,6 +7,8 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 import { createEventDetail, deleteEventDetail, listEventDetails, listEvents, listFailureModes } from "../api/endpoints";
 
 const schema = z.object({
@@ -21,9 +23,9 @@ type FormValues = z.infer<typeof schema>;
 
 export default function EventDetails() {
   const queryClient = useQueryClient();
-  const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 400 }) });
-  const { data: modes } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 200 }) });
-  const { data: details } = useQuery({ queryKey: ["event-details"], queryFn: () => listEventDetails({ limit: 400 }) });
+  const { data: events, isLoading: eventsLoading } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 400 }) });
+  const { data: modes, isLoading: modesLoading } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 200 }) });
+  const { data: details, isLoading: detailsLoading, isError: detailsError } = useQuery({ queryKey: ["event-details"], queryFn: () => listEventDetails({ limit: 400 }) });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -91,6 +93,8 @@ export default function EventDetails() {
       </Card>
 
       <Card title="Event failure details" description="Pareto inputs for analytics." actions={<span className="text-xs text-slate-400">GET /event-details/</span>}>
+        {detailsLoading && <Spinner />}
+        {detailsError && <Alert tone="danger">Could not load failure details.</Alert>}
         {details && details.length > 0 ? (
           <Table>
             <thead>
@@ -126,9 +130,9 @@ export default function EventDetails() {
               ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !detailsLoading ? (
           <EmptyState title="No failure details" message="Attach failure modes to events for analytics." icon="⚙" />
-        )}
+        ) : null}
       </Card>
     </div>
   );

@@ -9,6 +9,8 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 
 const assetSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -20,7 +22,7 @@ const assetSchema = z.object({
 
 export default function Assets() {
   const queryClient = useQueryClient();
-  const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
+  const { data: assets, isLoading, isError } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
 
   const form = useForm<AssetCreate>({
     resolver: zodResolver(assetSchema),
@@ -62,6 +64,8 @@ export default function Assets() {
       </Card>
 
       <Card title="Assets" description="Sorted by creation" actions={<span className="text-xs text-slate-400">GET /assets/</span>}>
+        {isLoading && <Spinner />}
+        {isError && <Alert tone="danger">Could not load assets.</Alert>}
         {assets && assets.length > 0 ? (
           <Table>
             <thead>
@@ -100,9 +104,9 @@ export default function Assets() {
                 ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !isLoading ? (
           <EmptyState title="No assets" message="Create one or seed the demo dataset." icon="🛠" />
-        )}
+        ) : null}
       </Card>
     </div>
   );

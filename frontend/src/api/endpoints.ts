@@ -14,6 +14,7 @@ import type {
   PartCreate,
   PartInstall,
   PartInstallCreate,
+  Health,
 } from "./types";
 
 // Assets
@@ -56,3 +57,6 @@ export const listPartInstalls = (partId: number) => unwrap<PartInstall[]>(api.ge
 export const createPartInstall = (partId: number, payload: PartInstallCreate) => unwrap<PartInstall>(api.post(`/parts/${partId}/installs`, payload));
 export const updatePartInstall = (installId: number, payload: Partial<PartInstallCreate>) => unwrap<PartInstall>(api.patch(`/parts/installs/${installId}`, payload));
 export const deletePartInstall = (installId: number) => api.delete(`/parts/installs/${installId}`);
+
+// Health
+export const getHealth = () => unwrap<Health>(api.get("/health"));

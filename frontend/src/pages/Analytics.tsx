@@ -5,10 +5,12 @@ import { Card } from "../components/Card";
 import { Stat } from "../components/Stat";
 import { Table, Th, Td } from "../components/Table";
 import { format } from "date-fns";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 
 export default function Analytics() {
-  const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 500 }) });
-  const { data: exposures } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
+  const { data: events, isLoading: eventsLoading, isError: eventsError } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 500 }) });
+  const { data: exposures, isLoading: exposuresLoading, isError: exposuresError } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
 
   const { failureCount, mtbfHours, mttrHours, availability } = useMemo(() => {
     const failureEvents = (events ?? []).filter((e) => e.event_type === "failure");
@@ -38,6 +40,8 @@ export default function Analytics() {
       </Card>
 
       <Card title="Failure timeline" description="Latest 20 failure events sorted by time">
+        {(eventsLoading || exposuresLoading) && <Spinner />}
+        {(eventsError || exposuresError) && <Alert tone="danger">Could not load data for analytics.</Alert>}
         {events && events.length > 0 ? (
           <Table>
             <thead>
@@ -64,9 +68,9 @@ export default function Analytics() {
                 ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !(eventsLoading || exposuresLoading) ? (
           <p className="text-sm text-slate-400">No failure events yet.</p>
-        )}
+        ) : null}
       </Card>
 
       <Card title="How to get Weibull & PDF" description="Backend already supports full reporting; run CLI until an API endpoint exists.">

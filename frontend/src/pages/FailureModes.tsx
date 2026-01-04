@@ -8,6 +8,8 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 
 const schema = z.object({ name: z.string().min(1), category: z.string().optional() });
 
@@ -15,7 +17,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function FailureModes() {
   const queryClient = useQueryClient();
-  const { data: modes } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 200 }) });
+  const { data: modes, isLoading, isError } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 200 }) });
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { name: "", category: "" } });
 
   const createMutation = useMutation({
@@ -46,6 +48,8 @@ export default function FailureModes() {
       </Card>
 
       <Card title="Failure modes" description="Link to event details" actions={<span className="text-xs text-slate-400">GET /failure-modes/</span>}>
+        {isLoading && <Spinner />}
+        {isError && <Alert tone="danger">Could not load failure modes.</Alert>}
         {modes && modes.length > 0 ? (
           <Table>
             <thead>
@@ -75,9 +79,9 @@ export default function FailureModes() {
               ))}
             </tbody>
           </Table>
-        ) : (
+        ) : !isLoading ? (
           <EmptyState title="No failure modes" message="Create modes then attach to events." icon="⚠️" />
-        )}
+        ) : null}
       </Card>
     </div>
   );

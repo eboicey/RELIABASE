@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { listAssets, listEvents, listExposures, listFailureModes, listParts } from "../api/endpoints";
+import { listAssets, listEvents, listExposures, listFailureModes, listParts, getHealth } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { exportAssets, exportEvents, exportExposures, exportFailureModes, exportParts } from "../utils/csv";
+import { Spinner } from "../components/Spinner";
+import { Alert } from "../components/Alert";
 
 export default function Operations() {
-  const { data: health } = useQuery({ queryKey: ["health"], queryFn: async () => fetch("/health").then((r) => r.json()) });
+  const { data: health, isLoading: healthLoading, isError: healthError } = useQuery({ queryKey: ["health"], queryFn: getHealth });
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 500 }) });
   const { data: exposures } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
@@ -16,12 +18,15 @@ export default function Operations() {
     <div className="space-y-6">
       <Card title="API health" description="Pings /health on the backend">
         <div className="flex items-center gap-3 text-sm">
-          <span className={`h-2 w-2 rounded-full ${health ? "bg-emerald-400" : "bg-red-400"}`} />
-          <span className="text-slate-200">{health ? "Backend reachable" : "Backend not reachable"}</span>
+          <span className={`h-2 w-2 rounded-full ${healthLoading ? "bg-amber-400 animate-pulse" : health?.status === "ok" ? "bg-emerald-400" : "bg-red-400"}`} />
+          <span className="text-slate-200">
+            {healthLoading ? "Checking backend..." : healthError ? "Backend unreachable" : health?.status === "ok" ? "Backend reachable" : "Backend not reachable"}
+          </span>
         </div>
       </Card>
 
       <Card title="CSV export" description="Download the current tables directly from API responses.">
+        {(assets === undefined || events === undefined || exposures === undefined) && <Spinner />}
         <div className="flex flex-wrap gap-3">
           <Button onClick={() => assets && exportAssets(assets)} disabled={!assets}>Export assets</Button>
           <Button onClick={() => exposures && exportExposures(exposures)} disabled={!exposures}>Export exposures</Button>
@@ -29,6 +34,7 @@ export default function Operations() {
           <Button onClick={() => modes && exportFailureModes(modes)} disabled={!modes}>Export failure modes</Button>
           <Button onClick={() => parts && exportParts(parts)} disabled={!parts}>Export parts</Button>
         </div>
+        {(events === null || exposures === null) && <Alert tone="danger">Could not load data to export.</Alert>}
       </Card>
 
       <Card title="Demo + report" description="Run backend CLIs until HTTP endpoints exist for these actions.">

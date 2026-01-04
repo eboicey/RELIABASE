@@ -101,3 +101,7 @@ export interface PartInstallCreate {
   install_time: string;
   remove_time?: string | null;
 }
+
+export interface Health {
+  status: string;
+}
