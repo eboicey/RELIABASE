@@ -18,7 +18,7 @@ def list_parts(session: SessionDep, offset: int = 0, limit: int = 100):
 
 @router.post("/", response_model=schemas.PartRead, status_code=201)
 def create_part(payload: schemas.PartCreate, session: SessionDep):
-    item = models.Part.from_orm(payload)
+    item = models.Part(**payload.model_dump())
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -38,7 +38,7 @@ def update_part(part_id: int, payload: schemas.PartUpdate, session: SessionDep):
     item = session.get(models.Part, part_id)
     if not item:
         raise HTTPException(status_code=404, detail="Part not found")
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
     session.add(item)
     session.commit()
@@ -72,7 +72,7 @@ def _validate_install_times(install_time, remove_time):
 @router.post("/{part_id}/installs", response_model=schemas.PartInstallRead, status_code=201)
 def create_part_install(part_id: int, payload: schemas.PartInstallCreate, session: SessionDep):
     _validate_install_times(payload.install_time, payload.remove_time)
-    data = payload.dict()
+    data = payload.model_dump()
     data["part_id"] = part_id
     install = models.PartInstall(**data)
     session.add(install)
@@ -86,7 +86,7 @@ def update_part_install(install_id: int, payload: schemas.PartInstallUpdate, ses
     install = session.get(models.PartInstall, install_id)
     if not install:
         raise HTTPException(status_code=404, detail="Part install not found")
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     new_install_time = data.get("install_time", install.install_time)
     new_remove_time = data.get("remove_time", install.remove_time)
     _validate_install_times(new_install_time, new_remove_time)

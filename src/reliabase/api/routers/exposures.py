@@ -48,7 +48,7 @@ def create_exposure(payload: schemas.ExposureLogCreate, session: SessionDep):
     _validate_interval(payload.start_time, payload.end_time)
     _check_overlap(session, payload.asset_id, payload.start_time, payload.end_time)
     hours = _compute_hours(payload)
-    log = models.ExposureLog.from_orm(payload)
+    log = models.ExposureLog(**payload.model_dump())
     log.hours = hours
     session.add(log)
     session.commit()
@@ -69,7 +69,7 @@ def update_exposure(log_id: int, payload: schemas.ExposureLogUpdate, session: Se
     log = session.get(models.ExposureLog, log_id)
     if not log:
         raise HTTPException(status_code=404, detail="Exposure not found")
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     if "start_time" in data or "end_time" in data:
         start = data.get("start_time", log.start_time)
         end = data.get("end_time", log.end_time)

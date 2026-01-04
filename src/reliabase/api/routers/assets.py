@@ -18,7 +18,7 @@ def list_assets(session: SessionDep, offset: int = 0, limit: int = 100):
 
 @router.post("/", response_model=schemas.AssetRead, status_code=201)
 def create_asset(payload: schemas.AssetCreate, session: SessionDep):
-    asset = models.Asset.from_orm(payload)
+    asset = models.Asset(**payload.model_dump())
     session.add(asset)
     session.commit()
     session.refresh(asset)
@@ -38,7 +38,7 @@ def update_asset(asset_id: int, payload: schemas.AssetUpdate, session: SessionDe
     asset = session.get(models.Asset, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
-    update_data = payload.dict(exclude_unset=True)
+    update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(asset, field, value)
     session.add(asset)

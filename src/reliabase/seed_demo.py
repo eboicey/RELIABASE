@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import typer
 from sqlmodel import Session
@@ -42,7 +42,7 @@ def seed_demo_dataset(session: Session) -> None:
     session.add_all(parts)
     session.commit()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     exposures: list[ExposureLog] = []
     events: list[Event] = []
     details: list[EventFailureDetail] = []

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from reliabase.models import Asset, ExposureLog, Event
 
@@ -32,7 +32,7 @@ def test_event_and_exposure_flow(session, client):
     session.commit()
     session.refresh(asset)
 
-    start = datetime.utcnow()
+    start = datetime.now(timezone.utc)
     exp1 = ExposureLog(asset_id=asset.id, start_time=start, end_time=start + timedelta(hours=100), hours=100)
     exp2 = ExposureLog(asset_id=asset.id, start_time=start + timedelta(hours=100), end_time=start + timedelta(hours=200), hours=100)
     session.add_all([exp1, exp2])
@@ -55,7 +55,7 @@ def test_invalid_event_type_rejected(client):
         "/events/",
         json={
             "asset_id": asset_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": "bad",
             "downtime_minutes": 10,
         },
@@ -66,7 +66,7 @@ def test_invalid_event_type_rejected(client):
 def test_overlapping_exposure_rejected(session, client):
     asset_resp = client.post("/assets/", json={"name": "Unit O"})
     asset_id = asset_resp.json()["id"]
-    base = datetime.utcnow()
+    base = datetime.now(timezone.utc)
     start = base.isoformat()
     end = (base + timedelta(hours=10)).isoformat()
     ok = client.post(
@@ -88,6 +88,6 @@ def test_part_install_time_validation(client):
     asset_id = asset_resp.json()["id"]
     install = client.post(
         f"/parts/{part_id}/installs",
-        json={"asset_id": asset_id, "install_time": datetime.utcnow().isoformat(), "remove_time": (datetime.utcnow() - timedelta(hours=1)).isoformat()},
+        json={"asset_id": asset_id, "install_time": datetime.now(timezone.utc).isoformat(), "remove_time": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()},
     )
     assert install.status_code == 400

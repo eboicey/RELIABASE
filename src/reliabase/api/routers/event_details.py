@@ -21,7 +21,7 @@ def list_event_details(session: SessionDep, offset: int = 0, limit: int = 100, e
 
 @router.post("/", response_model=schemas.EventFailureDetailRead, status_code=201)
 def create_event_detail(payload: schemas.EventFailureDetailCreate, session: SessionDep):
-    item = models.EventFailureDetail.from_orm(payload)
+    item = models.EventFailureDetail(**payload.model_dump())
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -41,7 +41,7 @@ def update_event_detail(detail_id: int, payload: schemas.EventFailureDetailUpdat
     item = session.get(models.EventFailureDetail, detail_id)
     if not item:
         raise HTTPException(status_code=404, detail="Event detail not found")
-    for field, value in payload.dict(exclude_unset=True).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
     session.add(item)
     session.commit()

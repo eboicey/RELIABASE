@@ -31,7 +31,7 @@ def list_events(session: SessionDep, offset: int = 0, limit: int = 100, asset_id
 @router.post("/", response_model=schemas.EventRead, status_code=201)
 def create_event(payload: schemas.EventCreate, session: SessionDep):
     event_type = _validate_event_type(payload.event_type)
-    data = payload.dict()
+    data = payload.model_dump()
     data["event_type"] = event_type
     event = models.Event(**data)
     session.add(event)
@@ -53,7 +53,7 @@ def update_event(event_id: int, payload: schemas.EventUpdate, session: SessionDe
     event = session.get(models.Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     if "event_type" in data:
         data["event_type"] = _validate_event_type(data["event_type"])
     for field, value in data.items():

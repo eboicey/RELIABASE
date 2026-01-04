@@ -25,7 +25,7 @@ def export_records(records: Iterable[dict], path: Path) -> Path:
 
 def export_table(session: Session, model: Type[SQLModel], path: Path) -> Path:
     rows = session.exec(select(model)).all()
-    records = [row.dict() for row in rows]
+    records = [row.model_dump() for row in rows]
     return export_records(records, path)
 
 
