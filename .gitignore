@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -8,14 +9,27 @@ __pycache__/
 venv/
 .envrc
 pytest_cache/
+.pytest_cache/
 .coverage
 htmlcov/
 *.sqlite
 *.db
+.eggs/
+*.egg-info/
+
+# Build
+/build/
+/dist/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# OS/IDE
 .DS_Store
 .idea/
 .vscode/
-/build/
-/dist/
-.eggs/
-*.egg-info/
+*.swp
+*.swo
+Thumbs.db

@@ -75,29 +75,42 @@ export default function Operations() {
         {(events === null || exposures === null) && <Alert tone="danger">Could not load data to export.</Alert>}
       </Card>
 
-      <Card title="Demo + report" description="Run backend CLIs until HTTP endpoints exist for these actions.">
-        <ol className="list-decimal list-inside space-y-2 text-sm text-slate-300">
-          <li className="flex items-center gap-3">
-            <span>Seed demo:</span>
-            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code>
-            <Button size="sm" variant="ghost" onClick={() => copyCommand("python -m reliabase.seed_demo")}>Copy</Button>
-          </li>
-          <li className="flex items-center gap-3">
-            <span>Generate reliability packet:</span>
-            <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => copyCommand("python -m reliabase.make_report --asset-id 1 --output-dir examples")}
-            >
-              Copy
-            </Button>
-          </li>
-          <li>CSV import (backend): use reliabase.io.csv_io helpers or extend API to add upload endpoints.</li>
-        </ol>
-        <p className="text-xs text-slate-400 mt-3">
-          If you want UI-based CSV import or server-side report generation, expose API endpoints and we will wire them here.
-        </p>
+      <Card title="CLI Commands" description="Generate reports and manage data via terminal commands.">
+        <div className="space-y-4 text-sm">
+          <div className="border-l-2 border-slate-700 pl-4">
+            <div className="font-medium text-slate-100 mb-2">Seed Demo Data (CLI alternative)</div>
+            <div className="flex items-center gap-3">
+              <code className="bg-slate-800 px-3 py-1.5 rounded text-slate-200">python -m reliabase.seed_demo</code>
+              <Button size="sm" variant="ghost" onClick={() => copyCommand("python -m reliabase.seed_demo")}>Copy</Button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Creates sample assets, events, and exposures. Use the button above for UI-based seeding.</p>
+          </div>
+          
+          <div className="border-l-2 border-slate-700 pl-4">
+            <div className="font-medium text-slate-100 mb-2">Generate Reliability Report</div>
+            <div className="flex items-center gap-3">
+              <code className="bg-slate-800 px-3 py-1.5 rounded text-slate-200">python -m reliabase.make_report --asset-id 1 --output-dir ./examples</code>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyCommand("python -m reliabase.make_report --asset-id 1 --output-dir ./examples")}
+              >
+                Copy
+              </Button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Creates PDF report + PNG charts (Weibull curves, Pareto, timeline) in the specified folder.</p>
+          </div>
+
+          <div className="border-l-2 border-slate-700 pl-4">
+            <div className="font-medium text-slate-100 mb-2">API Documentation</div>
+            <p className="text-slate-300">
+              Interactive API docs available at{" "}
+              <a href="http://localhost:8000/docs" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:underline">
+                http://localhost:8000/docs
+              </a>
+            </p>
+          </div>
+        </div>
       </Card>
     </div>
   );

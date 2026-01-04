@@ -5,11 +5,23 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "reliabase"
 version = "0.1.0"
-description = "Reliability engineering tracking and analytics (MTBF/MTTR, Weibull, reports)"
-authors = [ { name = "RELIABASE Team" } ]
+description = "Reliability engineering tracking and analytics platform — MTBF/MTTR, Weibull analysis, and PDF reports"
+authors = [{ name = "Ethan Boicey" }]
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+keywords = ["reliability", "engineering", "mtbf", "mttr", "weibull", "analytics", "maintenance"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Manufacturing",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
 dependencies = [
   "fastapi==0.99.1",
   "uvicorn[standard]==0.23.2",
@@ -23,6 +35,11 @@ dependencies = [
   "python-dotenv>=1.0",
   "typer>=0.9",
 ]
+
+[project.urls]
+Homepage = "https://github.com/eboicey/RELIABASE"
+Repository = "https://github.com/eboicey/RELIABASE"
+Issues = "https://github.com/eboicey/RELIABASE/issues"
 
 [project.optional-dependencies]
 test = [
