@@ -1,5 +1,6 @@
 import os
 import tempfile
+import warnings
 from typing import Generator
 
 import pytest
@@ -9,6 +10,33 @@ from sqlmodel import Session, SQLModel, create_engine
 import reliabase.config as config
 from reliabase.api import main
 from reliabase.api import deps
+
+warnings.filterwarnings("ignore", message=r".*obj.from_orm.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=r".*obj.dict\(\).*", category=DeprecationWarning)
+warnings.filterwarnings(
+    "ignore",
+    message=r".*obj.from_orm.*",
+    category=DeprecationWarning,
+    module=r"anyio._backends._asyncio",
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r".*obj.dict\(\).*",
+    category=DeprecationWarning,
+    module=r"fastapi.encoders",
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r"Precision loss occurred in moment calculation.*",
+    category=RuntimeWarning,
+    module=r"scipy.stats._continuous_distns",
+)
+warnings.simplefilter("ignore", DeprecationWarning)
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore::DeprecationWarning",
+    "ignore:Precision loss occurred in moment calculation.*:RuntimeWarning",
+)
 
 
 @pytest.fixture()

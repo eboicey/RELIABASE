@@ -18,6 +18,7 @@ import {
   listPartInstalls,
   listParts,
   updatePart,
+  updatePartInstall,
 } from "../api/endpoints";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -39,6 +40,7 @@ export default function Parts() {
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 200 }) });
   const [selectedPartId, setSelectedPartId] = useState<number | null>(null);
   const [editingPartId, setEditingPartId] = useState<number | null>(null);
+  const [editingInstallId, setEditingInstallId] = useState<number | null>(null);
 
   const installsQuery = useQuery({
     queryKey: ["part-installs", selectedPartId],
@@ -49,6 +51,15 @@ export default function Parts() {
   const partForm = useForm<PartForm>({ resolver: zodResolver(partSchema), defaultValues: { name: "", part_number: "" } });
   const editPartForm = useForm<PartForm>({ resolver: zodResolver(partSchema), defaultValues: { name: "", part_number: "" } });
   const installForm = useForm<InstallForm>({
+    resolver: zodResolver(installSchema),
+    defaultValues: {
+      part_id: selectedPartId ?? 0,
+      asset_id: assets?.[0]?.id ?? 1,
+      install_time: "",
+      remove_time: "",
+    },
+  });
+  const editInstallForm = useForm<InstallForm>({
     resolver: zodResolver(installSchema),
     defaultValues: {
       part_id: selectedPartId ?? 0,
@@ -106,11 +117,41 @@ export default function Parts() {
     },
   });
 
+    const updateInstallMutation = useMutation({
+      mutationFn: async (values: InstallForm) =>
+        updatePartInstall(editingInstallId!, {
+          asset_id: values.asset_id,
+          part_id: values.part_id,
+          install_time: new Date(values.install_time).toISOString(),
+          remove_time: values.remove_time ? new Date(values.remove_time).toISOString() : undefined,
+        }),
+      onSuccess: (_data, variables) => {
+        if (variables.part_id) {
+          queryClient.invalidateQueries({ queryKey: ["part-installs", variables.part_id] });
+        }
+        setEditingInstallId(null);
+      },
+    });
+
   useEffect(() => {
     if (!editingPartId || !parts) return;
     const part = parts.find((p) => p.id === editingPartId);
     if (part) editPartForm.reset({ name: part.name, part_number: part.part_number ?? "" });
   }, [editingPartId, parts, editPartForm]);
+
+  useEffect(() => {
+    if (!editingInstallId || !installsQuery.data) return;
+    const install = installsQuery.data.find((row) => row.id === editingInstallId);
+    if (install) {
+      const toLocal = (value: string | null) => (value ? new Date(value).toISOString().slice(0, 16) : "");
+      editInstallForm.reset({
+        part_id: install.part_id,
+        asset_id: install.asset_id,
+        install_time: toLocal(install.install_time),
+        remove_time: toLocal(install.remove_time ?? null),
+      });
+    }
+  }, [editingInstallId, installsQuery.data, editInstallForm]);
 
   return (
     <div className="space-y-6">
@@ -259,6 +300,9 @@ export default function Parts() {
                   <Td>{format(new Date(row.install_time), "yyyy-MM-dd HH:mm")}</Td>
                   <Td>{row.remove_time ? format(new Date(row.remove_time), "yyyy-MM-dd HH:mm") : "—"}</Td>
                   <Td className="text-right">
+                    <Button variant="ghost" onClick={() => setEditingInstallId(row.id)}>
+                      Edit
+                    </Button>
                     <Button
                       variant="ghost"
                       className="text-red-300"
@@ -279,6 +323,59 @@ export default function Parts() {
           />
         ) : null}
       </Card>
+
+      {editingInstallId && (
+        <Card
+          title={`Edit install #${editingInstallId}`}
+          description="Update install/remove times or asset mapping."
+          actions={<span className="text-xs text-slate-400">PATCH /parts/installs/{editingInstallId}</span>}
+        >
+          <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={editInstallForm.handleSubmit((v) => updateInstallMutation.mutate(v))}>
+            <div>
+              <label className="text-sm text-slate-200">Part</label>
+              <select
+                className="mt-1 w-full rounded-md border border-slate-700 bg-ink-900 px-3 py-2 text-sm"
+                {...editInstallForm.register("part_id", { valueAsNumber: true })}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setSelectedPartId(id);
+                  editInstallForm.setValue("part_id", id);
+                }}
+              >
+                {(parts ?? []).map((part) => (
+                  <option key={part.id} value={part.id}>
+                    #{part.id} — {part.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-slate-200">Asset</label>
+              <select
+                className="mt-1 w-full rounded-md border border-slate-700 bg-ink-900 px-3 py-2 text-sm"
+                {...editInstallForm.register("asset_id", { valueAsNumber: true })}
+              >
+                {(assets ?? []).map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    #{asset.id} — {asset.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Input label="Install time" type="datetime-local" {...editInstallForm.register("install_time")} />
+            <Input label="Remove time" type="datetime-local" {...editInstallForm.register("remove_time")} />
+            <div className="self-end flex gap-2">
+              <Button type="submit" disabled={updateInstallMutation.isPending}>
+                {updateInstallMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button variant="ghost" type="button" onClick={() => setEditingInstallId(null)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+          {updateInstallMutation.isError && <p className="text-sm text-red-400 mt-2">Could not update install.</p>}
+        </Card>
+      )}
     </div>
   );
 }

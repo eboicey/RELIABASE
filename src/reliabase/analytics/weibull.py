@@ -113,22 +113,37 @@ def bootstrap_weibull_ci(
         if censored_arr.size != arr.size:
             raise ValueError("data and censored_flags must be same length")
 
-    boot_shapes = []
-    boot_scales = []
+    boot_shapes: list[float] = []
+    boot_scales: list[float] = []
     rng = np.random.default_rng()
+    if np.ptp(arr) < 1e-9:
+        jitter_scale = max(1e-6, float(np.mean(np.abs(arr))) * 1e-6)
+        arr = arr + rng.normal(0.0, jitter_scale, size=arr.size)
+
     for _ in range(n_bootstrap):
         idx = rng.integers(0, arr.size, size=arr.size)
         sample = arr[idx]
         sample_cens = censored_arr[idx]
+        fit = None
         try:
             fit = fit_weibull_mle_censored(sample, sample_cens)
         except Exception:
             if allow_uncensored_fallback:
-                fit = fit_weibull_mle(sample)
+                try:
+                    fit = fit_weibull_mle(sample)
+                except Exception:
+                    fit = None
             else:
                 raise
-        boot_shapes.append(fit.shape)
-        boot_scales.append(fit.scale)
+        if fit:
+            boot_shapes.append(fit.shape)
+            boot_scales.append(fit.scale)
+
+    if not boot_shapes or not boot_scales:
+        base_fit = fit_weibull_mle_censored(arr, censored_arr) if np.any(~censored_arr) else fit_weibull_mle(arr)
+        boot_shapes.append(base_fit.shape)
+        boot_scales.append(base_fit.scale)
+
     lower = alpha / 2
     upper = 1 - alpha / 2
     return WeibullCI(
