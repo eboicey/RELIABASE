@@ -15,7 +15,7 @@ export function Table({ children, className }: TableProps) {
 }
 
 interface HeaderProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 export function Th({ children }: HeaderProps) {
   return <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">{children}</th>;
