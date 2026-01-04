@@ -137,7 +137,6 @@ class PartUpdate(SQLModel):
 
 class PartInstallBase(SQLModel):
     asset_id: int
-    part_id: int
     install_time: datetime
     remove_time: Optional[datetime] = None
 
@@ -148,6 +147,7 @@ class PartInstallCreate(PartInstallBase):
 
 class PartInstallRead(PartInstallBase):
     id: int
+    part_id: int
 
 
 class PartInstallUpdate(SQLModel):

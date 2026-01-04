@@ -41,3 +41,18 @@ def test_reliability_curves_monotonic():
     curves = weibull.reliability_curves(fit.shape, fit.scale, times)
     assert np.all(np.diff(curves.reliability) <= 1e-6)
     assert len(curves.hazard) == len(times)
+
+
+def test_aggregate_kpis():
+    start = datetime(2024, 1, 1)
+    exposures = [
+        ExposureLog(asset_id=1, start_time=start, end_time=start + timedelta(hours=50), hours=50),
+        ExposureLog(asset_id=1, start_time=start + timedelta(hours=50), end_time=start + timedelta(hours=100), hours=50),
+    ]
+    events = [
+        Event(asset_id=1, timestamp=exposures[0].end_time, event_type="failure", downtime_minutes=120),
+    ]
+    kpis = metrics.aggregate_kpis(exposures, events)
+    assert kpis["mtbf_hours"] > 0
+    assert abs(kpis["mttr_hours"] - 2) < 1e-6
+    assert 0 < kpis["availability"] < 1

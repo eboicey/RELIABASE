@@ -33,10 +33,14 @@ def _failure_counts(details: list[EventFailureDetail]) -> dict[str, int]:
 
 
 @app.command()
-def main(asset_id: int, output_dir: Path = Path("./examples")):
+def main(
+    asset_id: int = typer.Option(..., "--asset-id", help="Asset ID to report"),
+    output_dir: Path = typer.Option(Path("./examples"), "--output-dir", help="Directory for PDF"),
+    database_url: str | None = typer.Option(None, "--database-url", help="Override database URL"),
+):
     """Generate a PDF report for the given asset ID."""
-    init_db()
-    engine = get_engine()
+    init_db(database_url=database_url)
+    engine = get_engine(database_url)
     with Session(engine) as session:
         asset, exposures, events, details = _load_data(session, asset_id)
         kpis = metrics.aggregate_kpis(exposures, events)
@@ -80,6 +84,7 @@ def main(asset_id: int, output_dir: Path = Path("./examples")):
 
         pdf_path = reporting.generate_asset_report(output_dir, context)
     typer.echo(f"Generated report at {pdf_path}")
+    engine.dispose()
 
 
 if __name__ == "__main__":

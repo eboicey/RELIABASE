@@ -1,8 +1,6 @@
 """SQLModel models for RELIABASE core data."""
-from __future__ import annotations
-
 from datetime import datetime, date
-from typing import Optional
+from typing import List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -15,9 +13,9 @@ class Asset(SQLModel, table=True):
     in_service_date: Optional[date] = None
     notes: Optional[str] = None
 
-    exposure_logs: list["ExposureLog"] = Relationship(back_populates="asset")
-    events: list["Event"] = Relationship(back_populates="asset")
-    part_installs: list["PartInstall"] = Relationship(back_populates="asset")
+    exposure_logs: List["ExposureLog"] = Relationship(back_populates="asset")
+    events: List["Event"] = Relationship(back_populates="asset")
+    part_installs: List["PartInstall"] = Relationship(back_populates="asset")
 
 
 class ExposureLog(SQLModel, table=True):
@@ -28,7 +26,7 @@ class ExposureLog(SQLModel, table=True):
     hours: float = 0.0
     cycles: float = 0.0
 
-    asset: Asset = Relationship(back_populates="exposure_logs")
+    asset: "Asset" = Relationship(back_populates="exposure_logs")
 
 
 class Event(SQLModel, table=True):
@@ -39,8 +37,8 @@ class Event(SQLModel, table=True):
     downtime_minutes: Optional[float] = 0.0
     description: Optional[str] = None
 
-    asset: Asset = Relationship(back_populates="events")
-    failure_details: list["EventFailureDetail"] = Relationship(back_populates="event")
+    asset: "Asset" = Relationship(back_populates="events")
+    failure_details: List["EventFailureDetail"] = Relationship(back_populates="event")
 
 
 class FailureMode(SQLModel, table=True):
@@ -48,7 +46,7 @@ class FailureMode(SQLModel, table=True):
     name: str
     category: Optional[str] = None
 
-    event_details: list["EventFailureDetail"] = Relationship(back_populates="failure_mode")
+    event_details: List["EventFailureDetail"] = Relationship(back_populates="failure_mode")
 
 
 class EventFailureDetail(SQLModel, table=True):
@@ -59,8 +57,8 @@ class EventFailureDetail(SQLModel, table=True):
     corrective_action: Optional[str] = None
     part_replaced: Optional[str] = None
 
-    event: Event = Relationship(back_populates="failure_details")
-    failure_mode: FailureMode = Relationship(back_populates="event_details")
+    event: "Event" = Relationship(back_populates="failure_details")
+    failure_mode: "FailureMode" = Relationship(back_populates="event_details")
 
 
 class Part(SQLModel, table=True):
@@ -68,7 +66,7 @@ class Part(SQLModel, table=True):
     name: str
     part_number: Optional[str] = None
 
-    installs: list["PartInstall"] = Relationship(back_populates="part")
+    installs: List["PartInstall"] = Relationship(back_populates="part")
 
 
 class PartInstall(SQLModel, table=True):
@@ -78,5 +76,5 @@ class PartInstall(SQLModel, table=True):
     install_time: datetime
     remove_time: Optional[datetime] = None
 
-    asset: Asset = Relationship(back_populates="part_installs")
-    part: Part = Relationship(back_populates="installs")
+    asset: "Asset" = Relationship(back_populates="part_installs")
+    part: "Part" = Relationship(back_populates="installs")

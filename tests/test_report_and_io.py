@@ -18,6 +18,20 @@ def test_seed_demo_and_csv_export(session: Session, tmp_path: Path):
     assert out_csv.exists()
 
 
+def test_csv_import_roundtrip(session: Session, tmp_path: Path):
+    seed_demo_dataset(session)
+    out_csv = tmp_path / "assets.csv"
+    csv_io.export_table(session, Asset, out_csv)
+    # clear table
+    from sqlalchemy import text
+
+    session.exec(text("delete from asset"))
+    session.commit()
+    assert session.exec(select(Asset)).all() == []
+    csv_io.import_table(session, Asset, out_csv)
+    assert len(session.exec(select(Asset)).all()) > 0
+
+
 def test_report_generation(tmp_path: Path, session: Session, monkeypatch):
     seed_demo_dataset(session)
     asset_id = session.exec(select(Asset.id)).first()

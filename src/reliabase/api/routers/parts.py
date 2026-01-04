@@ -64,8 +64,14 @@ def list_part_installs(part_id: int, session: SessionDep):
     return session.exec(query).all()
 
 
+def _validate_install_times(install_time, remove_time):
+    if remove_time is not None and remove_time <= install_time:
+        raise HTTPException(status_code=400, detail="remove_time must be after install_time")
+
+
 @router.post("/{part_id}/installs", response_model=schemas.PartInstallRead, status_code=201)
 def create_part_install(part_id: int, payload: schemas.PartInstallCreate, session: SessionDep):
+    _validate_install_times(payload.install_time, payload.remove_time)
     data = payload.dict()
     data["part_id"] = part_id
     install = models.PartInstall(**data)
@@ -80,8 +86,12 @@ def update_part_install(install_id: int, payload: schemas.PartInstallUpdate, ses
     install = session.get(models.PartInstall, install_id)
     if not install:
         raise HTTPException(status_code=404, detail="Part install not found")
-    for field, value in payload.dict(exclude_unset=True).items():
-        setattr(install, field, value)
+    data = payload.dict(exclude_unset=True)
+    new_install_time = data.get("install_time", install.install_time)
+    new_remove_time = data.get("remove_time", install.remove_time)
+    _validate_install_times(new_install_time, new_remove_time)
+    install.install_time = new_install_time
+    install.remove_time = new_remove_time
     session.add(install)
     session.commit()
     session.refresh(install)

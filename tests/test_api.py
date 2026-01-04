@@ -46,3 +46,48 @@ def test_event_and_exposure_flow(session, client):
     resp = client.get(f"/events/?asset_id={asset.id}")
     assert resp.status_code == 200
     assert len(resp.json()) == 1
+
+
+def test_invalid_event_type_rejected(client):
+    asset_resp = client.post("/assets/", json={"name": "Unit X"})
+    asset_id = asset_resp.json()["id"]
+    resp = client.post(
+        "/events/",
+        json={
+            "asset_id": asset_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "event_type": "bad",
+            "downtime_minutes": 10,
+        },
+    )
+    assert resp.status_code == 400
+
+
+def test_overlapping_exposure_rejected(session, client):
+    asset_resp = client.post("/assets/", json={"name": "Unit O"})
+    asset_id = asset_resp.json()["id"]
+    base = datetime.utcnow()
+    start = base.isoformat()
+    end = (base + timedelta(hours=10)).isoformat()
+    ok = client.post(
+        "/exposures/",
+        json={"asset_id": asset_id, "start_time": start, "end_time": end, "hours": 10},
+    )
+    assert ok.status_code == 201
+    conflict = client.post(
+        "/exposures/",
+        json={"asset_id": asset_id, "start_time": start, "end_time": end, "hours": 5},
+    )
+    assert conflict.status_code == 400
+
+
+def test_part_install_time_validation(client):
+    part_resp = client.post("/parts/", json={"name": "Seal"})
+    part_id = part_resp.json()["id"]
+    asset_resp = client.post("/assets/", json={"name": "Unit P"})
+    asset_id = asset_resp.json()["id"]
+    install = client.post(
+        f"/parts/{part_id}/installs",
+        json={"asset_id": asset_id, "install_time": datetime.utcnow().isoformat(), "remove_time": (datetime.utcnow() - timedelta(hours=1)).isoformat()},
+    )
+    assert install.status_code == 400

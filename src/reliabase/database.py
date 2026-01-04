@@ -14,4 +14,8 @@ def get_session() -> Iterator[Session]:
     """Provide a transactional scope around a series of operations."""
     engine = get_engine()
     with Session(engine) as session:
-        yield session
+        try:
+            yield session
+        finally:
+            session.close()
+            engine.dispose()
