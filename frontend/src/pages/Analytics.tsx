@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback, Suspense, lazy } from "react";
 import { listAssets, listEvents, listExposures, listFailureModes, listEventDetails } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Stat } from "../components/Stat";
 import { Table, Th, Td } from "../components/Table";
 import { Button } from "../components/Button";
-import { Bar } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from "chart.js";
 import { format } from "date-fns";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
+
+const ParetoChart = lazy(() => import("../components/charts/ParetoChart"));
+const Sparkline = lazy(() => import("../components/charts/Sparkline"));
 
 export default function Analytics() {
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
@@ -57,19 +58,29 @@ export default function Analytics() {
     void navigator.clipboard?.writeText(cmd);
   }, []);
 
+  const mtbfTrend = useMemo(() => {
+    const failures = filtered.eventsFiltered
+      .filter((e) => e.event_type === "failure")
+      .slice()
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    if (failures.length < 2) return { labels: [], values: [] };
+    const values: number[] = [];
+    const labels: string[] = [];
+    for (let i = 1; i < failures.length; i++) {
+      const prev = new Date(failures[i - 1].timestamp).getTime();
+      const curr = new Date(failures[i].timestamp).getTime();
+      const hours = (curr - prev) / (1000 * 60 * 60);
+      values.push(Number(hours.toFixed(2)));
+      labels.push(`#${i + 1}`);
+    }
+    return { labels, values };
+  }, [filtered.eventsFiltered]);
+
   const paretoChart = useMemo(() => {
     if (failureModePareto.length === 0) return null;
     return {
       labels: failureModePareto.map((row) => row.name),
-      datasets: [
-        {
-          label: "Count",
-          data: failureModePareto.map((row) => row.count),
-          backgroundColor: "rgba(94, 234, 212, 0.7)",
-          borderColor: "rgba(94, 234, 212, 1)",
-          borderWidth: 1,
-        },
-      ],
+      values: failureModePareto.map((row) => row.count),
     };
   }, [failureModePareto]);
 
@@ -161,15 +172,23 @@ export default function Analytics() {
                 ))}
               </tbody>
             </Table>
-            {paretoChart && (
-              <div className="bg-ink-900/50 rounded-md p-2">
-                <Bar data={paretoChart} options={{ plugins: { legend: { display: false } }, scales: { y: { ticks: { precision: 0 } } } }} />
-              </div>
-            )}
+            <Suspense fallback={<Spinner />}>
+              {paretoChart && <ParetoChart labels={paretoChart.labels} values={paretoChart.values} />}
+            </Suspense>
           </div>
         ) : eventDetails && eventDetails.length === 0 ? (
           <p className="text-sm text-slate-400">Add failure details to populate Pareto.</p>
         ) : null}
+      </Card>
+
+      <Card title="MTBF trend" description="Time between consecutive failures (hours)" actions={<span className="text-xs text-slate-400">Derived from events</span>}>
+        {mtbfTrend.values.length > 0 ? (
+          <Suspense fallback={<Spinner />}>
+            <Sparkline labels={mtbfTrend.labels} values={mtbfTrend.values} />
+          </Suspense>
+        ) : (
+          <p className="text-sm text-slate-400">Log at least two failure events to see trend.</p>
+        )}
       </Card>
 
       <Card title="How to get Weibull & PDF" description="Backend already supports full reporting; run CLI until an API endpoint exists.">
@@ -177,16 +196,16 @@ export default function Analytics() {
           <li className="flex items-center gap-3">
             <span>Seed demo data:</span>
             <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code>
-            <Button size="sm" variant="ghost" onClick={() => copyCommand("python -m reliabase.seed_demo")}>Copy</Button>
+              <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => copyCommand("python -m reliabase.seed_demo")}>Copy</Button>
           </li>
           <li className="flex items-center gap-3">
             <span>Generate report:</span>
             <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => copyCommand("python -m reliabase.make_report --asset-id 1 --output-dir examples")}
-            >
+              <Button
+                variant="ghost"
+                className="px-2 py-1 text-xs"
+                onClick={() => copyCommand("python -m reliabase.make_report --asset-id 1 --output-dir examples")}
+              >
               Copy
             </Button>
           </li>
@@ -196,5 +215,3 @@ export default function Analytics() {
     </div>
   );
 }
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
