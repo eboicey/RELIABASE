@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createFailureMode, deleteFailureMode, listFailureModes } from "../api/endpoints";
+import { createFailureMode, deleteFailureMode, listFailureModes, updateFailureMode } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
@@ -10,6 +10,7 @@ import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
+import { useEffect, useState } from "react";
 
 const schema = z.object({ name: z.string().min(1), category: z.string().optional() });
 
@@ -19,6 +20,8 @@ export default function FailureModes() {
   const queryClient = useQueryClient();
   const { data: modes, isLoading, isError } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 200 }) });
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { name: "", category: "" } });
+  const editForm = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { name: "", category: "" } });
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (values: FormValues) => createFailureMode(values),
@@ -32,6 +35,20 @@ export default function FailureModes() {
     mutationFn: (id: number) => deleteFailureMode(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["failure-modes"] }),
   });
+
+  const updateMutation = useMutation({
+    mutationFn: (values: FormValues) => updateFailureMode(editingId!, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["failure-modes"] });
+      setEditingId(null);
+    },
+  });
+
+  useEffect(() => {
+    if (!editingId || !modes) return;
+    const m = modes.find((item) => item.id === editingId);
+    if (m) editForm.reset({ name: m.name, category: m.category ?? "" });
+  }, [editingId, modes, editForm]);
 
   return (
     <div className="space-y-6">
@@ -67,6 +84,9 @@ export default function FailureModes() {
                   <Td>{mode.name}</Td>
                   <Td className="text-slate-300">{mode.category ?? "—"}</Td>
                   <Td className="text-right">
+                    <Button variant="ghost" onClick={() => setEditingId(mode.id)}>
+                      Edit
+                    </Button>
                     <Button
                       variant="ghost"
                       className="text-red-300"
@@ -83,6 +103,28 @@ export default function FailureModes() {
           <EmptyState title="No failure modes" message="Create modes then attach to events." icon="⚠️" />
         ) : null}
       </Card>
+
+      {editingId && (
+        <Card
+          title={`Edit failure mode #${editingId}`}
+          description="Rename or recategorize a failure mode."
+          actions={<span className="text-xs text-slate-400">PATCH /failure-modes/{id}</span>}
+        >
+          <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={editForm.handleSubmit((v) => updateMutation.mutate(v))}>
+            <Input label="Name" {...editForm.register("name")} />
+            <Input label="Category" {...editForm.register("category")} />
+            <div className="self-end flex gap-2">
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button variant="ghost" type="button" onClick={() => setEditingId(null)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+          {updateMutation.isError && <p className="text-sm text-red-400 mt-2">Could not update failure mode.</p>}
+        </Card>
+      )}
     </div>
   );
 }

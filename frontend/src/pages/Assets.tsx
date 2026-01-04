@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createAsset, deleteAsset, listAssets } from "../api/endpoints";
+import { createAsset, deleteAsset, listAssets, updateAsset } from "../api/endpoints";
 import type { AssetCreate } from "../api/types";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -24,6 +25,8 @@ export default function Assets() {
   const queryClient = useQueryClient();
   const { data: assets, isLoading, isError } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+
   const form = useForm<AssetCreate>({
     resolver: zodResolver(assetSchema),
     defaultValues: { name: "", type: "", serial: "", in_service_date: "", notes: "" },
@@ -34,6 +37,33 @@ export default function Assets() {
     onSuccess: () => {
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["assets"] });
+    },
+  });
+
+  const editForm = useForm<AssetCreate>({
+    resolver: zodResolver(assetSchema),
+    defaultValues: { name: "", type: "", serial: "", in_service_date: "", notes: "" },
+  });
+
+  useEffect(() => {
+    if (!editingId || !assets) return;
+    const selected = assets.find((a) => a.id === editingId);
+    if (selected) {
+      editForm.reset({
+        name: selected.name,
+        type: selected.type ?? "",
+        serial: selected.serial ?? "",
+        in_service_date: selected.in_service_date ?? "",
+        notes: selected.notes ?? "",
+      });
+    }
+  }, [editingId, assets, editForm]);
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: AssetCreate) => updateAsset(editingId!, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      setEditingId(null);
     },
   });
 
@@ -94,6 +124,13 @@ export default function Assets() {
                     <Td className="text-right">
                       <Button
                         variant="ghost"
+                        className="text-slate-200"
+                        onClick={() => setEditingId(asset.id)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
                         className="text-red-300 hover:text-red-200"
                         onClick={() => deleteMutation.mutate(asset.id)}
                       >
@@ -108,6 +145,31 @@ export default function Assets() {
           <EmptyState title="No assets" message="Create one or seed the demo dataset." icon="🛠" />
         ) : null}
       </Card>
+
+      {editingId && (
+        <Card
+          title={`Edit asset #${editingId}`}
+          description="Update metadata and notes."
+          actions={<span className="text-xs text-slate-400">PATCH /assets/{id}</span>}
+        >
+          <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={editForm.handleSubmit((data) => updateMutation.mutate(data))}>
+            <Input label="Name" {...editForm.register("name")} error={editForm.formState.errors.name?.message} />
+            <Input label="Type" {...editForm.register("type")} />
+            <Input label="Serial" {...editForm.register("serial")} />
+            <Input label="In service date" type="date" {...editForm.register("in_service_date")} />
+            <Input label="Notes" {...editForm.register("notes")} />
+            <div className="self-end flex gap-2">
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button variant="ghost" type="button" onClick={() => setEditingId(null)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+          {updateMutation.isError && <p className="text-sm text-red-400 mt-2">Failed to update asset.</p>}
+        </Card>
+      )}
     </div>
   );
 }
