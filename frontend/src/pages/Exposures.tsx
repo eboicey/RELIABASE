@@ -57,6 +57,7 @@ export default function Exposures() {
   });
 
   const editingLog = useMemo(() => exposures?.find((l) => l.id === editingId), [exposures, editingId]);
+  const assetMap = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a.name])), [assets]);
 
   useEffect(() => {
     if (!editingLog) return;
@@ -175,7 +176,9 @@ export default function Exposures() {
                 .map((log) => (
                   <tr key={log.id} className="odd:bg-ink-900">
                     <Td>#{log.id}</Td>
-                    <Td>#{log.asset_id}</Td>
+                    <Td>
+                      #{log.asset_id} — {assetMap.get(log.asset_id) ?? "Asset"}
+                    </Td>
                     <Td>{format(new Date(log.start_time), "yyyy-MM-dd HH:mm")}</Td>
                     <Td>{format(new Date(log.end_time), "yyyy-MM-dd HH:mm")}</Td>
                     <Td>{log.hours.toFixed(2)}</Td>

@@ -117,21 +117,20 @@ export default function Parts() {
     },
   });
 
-    const updateInstallMutation = useMutation({
-      mutationFn: async (values: InstallForm) =>
-        updatePartInstall(editingInstallId!, {
-          asset_id: values.asset_id,
-          part_id: values.part_id,
-          install_time: new Date(values.install_time).toISOString(),
-          remove_time: values.remove_time ? new Date(values.remove_time).toISOString() : undefined,
-        }),
-      onSuccess: (_data, variables) => {
-        if (variables.part_id) {
-          queryClient.invalidateQueries({ queryKey: ["part-installs", variables.part_id] });
-        }
-        setEditingInstallId(null);
-      },
-    });
+  const updateInstallMutation = useMutation({
+    mutationFn: async (values: InstallForm) =>
+      updatePartInstall(editingInstallId!, {
+        asset_id: values.asset_id,
+        install_time: new Date(values.install_time).toISOString(),
+        remove_time: values.remove_time ? new Date(values.remove_time).toISOString() : undefined,
+      }),
+    onSuccess: (_data, variables) => {
+      if (variables.part_id) {
+        queryClient.invalidateQueries({ queryKey: ["part-installs", variables.part_id] });
+      }
+      setEditingInstallId(null);
+    },
+  });
 
   useEffect(() => {
     if (!editingPartId || !parts) return;

@@ -9,7 +9,7 @@ import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
-import { createEventDetail, deleteEventDetail, listEventDetails, listEvents, listFailureModes, updateEventDetail } from "../api/endpoints";
+import { createEventDetail, deleteEventDetail, listAssets, listEventDetails, listEvents, listFailureModes, updateEventDetail } from "../api/endpoints";
 import type { EventFailureDetail } from "../api/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -26,6 +26,7 @@ type FormValues = z.infer<typeof schema>;
 export default function EventDetails() {
   const queryClient = useQueryClient();
   const { data: events, isLoading: eventsLoading } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 400 }) });
+  const { data: assets, isLoading: assetsLoading } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 400 }) });
   const { data: modes, isLoading: modesLoading } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 200 }) });
   const { data: details, isLoading: detailsLoading, isError: detailsError } = useQuery({ queryKey: ["event-details"], queryFn: () => listEventDetails({ limit: 400 }) });
   const [filterEventId, setFilterEventId] = useState<number | "all">("all");
@@ -79,6 +80,23 @@ export default function EventDetails() {
     return details.filter((d) => d.event_id === filterEventId);
   }, [details, filterEventId]);
 
+  const assetMap = useMemo<Record<number, string>>(() => {
+    if (!assets) return {};
+    return Object.fromEntries(assets.map((asset) => [asset.id, asset.name]));
+  }, [assets]);
+
+  const eventMap = useMemo<Record<number, { asset_id: number; event_type: string }>>(() => {
+    if (!events) return {};
+    return Object.fromEntries(events.map((evt) => [evt.id, { asset_id: evt.asset_id, event_type: evt.event_type }]));
+  }, [events]);
+
+  const formatEventLabel = (eventId: number) => {
+    const evt = eventMap[eventId];
+    if (!evt) return `#${eventId}`;
+    const assetName = assetMap[evt.asset_id];
+    return `#${eventId} — ${evt.event_type} on ${assetName ?? `asset ${evt.asset_id}`}`;
+  };
+
   useEffect(() => {
     if (!editingId || !details) return;
     const row = details.find((d) => d.id === editingId);
@@ -105,7 +123,7 @@ export default function EventDetails() {
             >
               {(events ?? []).map((evt) => (
                 <option key={evt.id} value={evt.id}>
-                  #{evt.id} — {evt.event_type} on asset {evt.asset_id}
+                  {formatEventLabel(evt.id)}
                 </option>
               ))}
             </select>
@@ -146,7 +164,7 @@ export default function EventDetails() {
               <option value="all">All events</option>
               {(events ?? []).map((evt) => (
                 <option key={evt.id} value={evt.id}>
-                  #{evt.id} — {evt.event_type}
+                  {formatEventLabel(evt.id)}
                 </option>
               ))}
             </select>
@@ -171,7 +189,7 @@ export default function EventDetails() {
               {filteredDetails.map((row) => (
                 <tr key={row.id} className="odd:bg-ink-900">
                   <Td>#{row.id}</Td>
-                  <Td>#{row.event_id}</Td>
+                  <Td>{formatEventLabel(row.event_id)}</Td>
                   <Td>#{row.failure_mode_id}</Td>
                   <Td className="text-slate-300">{row.root_cause ?? "—"}</Td>
                   <Td className="text-slate-300">{row.corrective_action ?? "—"}</Td>
@@ -212,7 +230,7 @@ export default function EventDetails() {
               >
                 {(events ?? []).map((evt) => (
                   <option key={evt.id} value={evt.id}>
-                    #{evt.id} — {evt.event_type} on asset {evt.asset_id}
+                    {formatEventLabel(evt.id)}
                   </option>
                 ))}
               </select>

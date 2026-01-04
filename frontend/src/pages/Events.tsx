@@ -78,6 +78,7 @@ export default function Events() {
   });
 
   const editingEvent = useMemo(() => events?.find((e) => e.id === editingId), [events, editingId]);
+  const assetMap = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a.name])), [assets]);
 
   useEffect(() => {
     if (!editingEvent) return;
@@ -187,7 +188,9 @@ export default function Events() {
                 .map((evt) => (
                   <tr key={evt.id} className="odd:bg-ink-900">
                     <Td>#{evt.id}</Td>
-                    <Td>#{evt.asset_id}</Td>
+                    <Td>
+                      #{evt.asset_id} — {assetMap.get(evt.asset_id) ?? "Asset"}
+                    </Td>
                     <Td>{format(new Date(evt.timestamp), "yyyy-MM-dd HH:mm")}</Td>
                     <Td className="capitalize">{evt.event_type}</Td>
                     <Td>{evt.downtime_minutes ?? 0}</Td>
