@@ -108,7 +108,7 @@ export default function FailureModes() {
         <Card
           title={`Edit failure mode #${editingId}`}
           description="Rename or recategorize a failure mode."
-          actions={<span className="text-xs text-slate-400">PATCH /failure-modes/{id}</span>}
+          actions={<span className="text-xs text-slate-400">PATCH /failure-modes/{editingId}</span>}
         >
           <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={editForm.handleSubmit((v) => updateMutation.mutate(v))}>
             <Input label="Name" {...editForm.register("name")} />

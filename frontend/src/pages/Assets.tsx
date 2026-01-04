@@ -150,7 +150,7 @@ export default function Assets() {
         <Card
           title={`Edit asset #${editingId}`}
           description="Update metadata and notes."
-          actions={<span className="text-xs text-slate-400">PATCH /assets/{id}</span>}
+            actions={<span className="text-xs text-slate-400">PATCH /assets/{editingId}</span>}
         >
           <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={editForm.handleSubmit((data) => updateMutation.mutate(data))}>
             <Input label="Name" {...editForm.register("name")} error={editForm.formState.errors.name?.message} />

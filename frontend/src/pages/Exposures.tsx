@@ -209,7 +209,7 @@ export default function Exposures() {
         <Card
           title={`Edit exposure #${editingId}`}
           description="Adjust interval; overlap validation enforced by API."
-          actions={<span className="text-xs text-slate-400">PATCH /exposures/{id}</span>}
+          actions={<span className="text-xs text-slate-400">PATCH /exposures/{editingId}</span>}
         >
           <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={editForm.handleSubmit((values) => updateMutation.mutate(values))}>
             <div>

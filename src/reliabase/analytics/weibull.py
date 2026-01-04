@@ -39,16 +39,30 @@ def fit_weibull_mle(data: Iterable[float]) -> WeibullFit:
 
 
 def _neg_log_likelihood(log_params: np.ndarray, durations: np.ndarray, censored: np.ndarray) -> float:
+    """Stable negative log-likelihood for Weibull with censoring.
+
+    Computation is performed in log-space with clipping to avoid overflow when
+    durations are large or very small.
+    """
     log_shape, log_scale = log_params
+    log_shape = float(np.clip(log_shape, np.log(1e-6), np.log(1e6)))
+    log_scale = float(np.clip(log_scale, np.log(1e-6), np.log(1e9)))
     shape = np.exp(log_shape)
     scale = np.exp(log_scale)
+
     eps = 1e-12
     t = np.maximum(durations, eps)
+    log_t = np.log(t)
     observed = ~censored
-    log_pdf = np.log(shape) + (shape - 1) * np.log(t) - shape * np.log(scale) - (t / scale) ** shape
-    log_sf = - (t / scale) ** shape
+
+    exp_arg = shape * (log_t - log_scale)
+    exp_arg_clipped = np.clip(exp_arg, -700, 700)  # prevents overflow in exp
+
+    log_pdf = np.log(shape) + (shape - 1) * (log_t - log_scale) - np.exp(exp_arg_clipped)
+    log_sf = -np.exp(exp_arg_clipped)
+
     ll = np.sum(log_pdf[observed]) + np.sum(log_sf[censored])
-    return -ll
+    return -float(ll)
 
 
 def fit_weibull_mle_censored(durations: Sequence[float], censored_flags: Sequence[bool] | None = None) -> WeibullFit:
@@ -71,11 +85,12 @@ def fit_weibull_mle_censored(durations: Sequence[float], censored_flags: Sequenc
         x0=np.array([np.log(init_shape), np.log(init_scale)]),
         args=(durations_arr, censored_arr),
         method="L-BFGS-B",
+        bounds=((np.log(1e-6), np.log(1e6)), (np.log(1e-6), np.log(1e9))),
     )
     if not result.success:
         raise RuntimeError(f"Weibull MLE failed: {result.message}")
-    shape = float(np.exp(result.x[0]))
-    scale = float(np.exp(result.x[1]))
+    shape = float(np.exp(np.clip(result.x[0], np.log(1e-6), np.log(1e6))))
+    scale = float(np.exp(np.clip(result.x[1], np.log(1e-6), np.log(1e9))))
     loglike = -_neg_log_likelihood(result.x, durations_arr, censored_arr)
     return WeibullFit(shape=shape, scale=scale, log_likelihood=loglike)
 

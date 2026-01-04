@@ -221,7 +221,7 @@ export default function Events() {
         <Card
           title={`Edit event #${editingId}`}
           description="Update timestamp, type, downtime, and description."
-          actions={<span className="text-xs text-slate-400">PATCH /events/{id}</span>}
+          actions={<span className="text-xs text-slate-400">PATCH /events/{editingId}</span>}
         >
           <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={editForm.handleSubmit((values) => updateMutation.mutate(values))}>
             <div>

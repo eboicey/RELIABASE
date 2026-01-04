@@ -17,8 +17,9 @@ import {
   listAssets,
   listPartInstalls,
   listParts,
+  updatePart,
 } from "../api/endpoints";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 
 const partSchema = z.object({ name: z.string().min(1), part_number: z.string().optional() });
@@ -37,6 +38,7 @@ export default function Parts() {
   const { data: parts, isLoading: partsLoading, isError: partsError } = useQuery({ queryKey: ["parts"], queryFn: () => listParts({ limit: 200 }) });
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 200 }) });
   const [selectedPartId, setSelectedPartId] = useState<number | null>(null);
+  const [editingPartId, setEditingPartId] = useState<number | null>(null);
 
   const installsQuery = useQuery({
     queryKey: ["part-installs", selectedPartId],
@@ -45,6 +47,7 @@ export default function Parts() {
   });
 
   const partForm = useForm<PartForm>({ resolver: zodResolver(partSchema), defaultValues: { name: "", part_number: "" } });
+  const editPartForm = useForm<PartForm>({ resolver: zodResolver(partSchema), defaultValues: { name: "", part_number: "" } });
   const installForm = useForm<InstallForm>({
     resolver: zodResolver(installSchema),
     defaultValues: {
@@ -63,6 +66,14 @@ export default function Parts() {
     },
   });
 
+  const updatePartMutation = useMutation({
+    mutationFn: (values: PartForm) => updatePart(editingPartId!, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["parts"] });
+      setEditingPartId(null);
+    },
+  });
+
   const deletePartMutation = useMutation({
     mutationFn: (id: number) => deletePart(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["parts"] }),
@@ -75,9 +86,14 @@ export default function Parts() {
         install_time: new Date(values.install_time).toISOString(),
         remove_time: values.remove_time ? new Date(values.remove_time).toISOString() : undefined,
       }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["part-installs", variables.part_id] });
-      installForm.reset();
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["part-installs", variables.part_id] });
+        installForm.reset({
+          part_id: variables.part_id,
+          asset_id: variables.asset_id,
+          install_time: "",
+          remove_time: "",
+        });
     },
   });
 
@@ -89,6 +105,12 @@ export default function Parts() {
       }
     },
   });
+
+  useEffect(() => {
+    if (!editingPartId || !parts) return;
+    const part = parts.find((p) => p.id === editingPartId);
+    if (part) editPartForm.reset({ name: part.name, part_number: part.part_number ?? "" });
+  }, [editingPartId, parts, editPartForm]);
 
   return (
     <div className="space-y-6">
@@ -122,6 +144,9 @@ export default function Parts() {
                   <Td>{part.name}</Td>
                   <Td className="text-slate-300">{part.part_number ?? "—"}</Td>
                   <Td className="text-right space-x-2">
+                    <Button variant="ghost" onClick={() => setEditingPartId(part.id)}>
+                      Edit
+                    </Button>
                     <Button variant="ghost" onClick={() => setSelectedPartId(part.id)}>
                       Installs
                     </Button>
@@ -141,6 +166,28 @@ export default function Parts() {
           <EmptyState title="No parts" message="Create parts to track install/remove windows." icon="📦" />
         ) : null}
       </Card>
+
+      {editingPartId && (
+        <Card
+          title={`Edit part #${editingPartId}`}
+          description="Update part name or number."
+          actions={<span className="text-xs text-slate-400">PATCH /parts/{editingPartId}</span>}
+        >
+          <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={editPartForm.handleSubmit((v) => updatePartMutation.mutate(v))}>
+            <Input label="Name" {...editPartForm.register("name")} />
+            <Input label="Part number" {...editPartForm.register("part_number")} />
+            <div className="self-end flex gap-2">
+              <Button type="submit" disabled={updatePartMutation.isPending}>
+                {updatePartMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button variant="ghost" type="button" onClick={() => setEditingPartId(null)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+          {updatePartMutation.isError && <p className="text-sm text-red-400 mt-2">Could not update part.</p>}
+        </Card>
+      )}
 
       <Card
         title="Part installs"
