@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Iterable, Sequence, Tuple
 
 import numpy as np
-from scipy import stats
+from scipy import optimize, stats
 
 
 @dataclass
@@ -38,17 +38,80 @@ def fit_weibull_mle(data: Iterable[float]) -> WeibullFit:
     return WeibullFit(shape=c, scale=scale, log_likelihood=loglike)
 
 
-def bootstrap_weibull_ci(data: Sequence[float], n_bootstrap: int = 1000, alpha: float = 0.05) -> WeibullCI:
-    """Bootstrap confidence intervals for shape/scale parameters."""
+def _neg_log_likelihood(log_params: np.ndarray, durations: np.ndarray, censored: np.ndarray) -> float:
+    log_shape, log_scale = log_params
+    shape = np.exp(log_shape)
+    scale = np.exp(log_scale)
+    eps = 1e-12
+    t = np.maximum(durations, eps)
+    observed = ~censored
+    log_pdf = np.log(shape) + (shape - 1) * np.log(t) - shape * np.log(scale) - (t / scale) ** shape
+    log_sf = - (t / scale) ** shape
+    ll = np.sum(log_pdf[observed]) + np.sum(log_sf[censored])
+    return -ll
+
+
+def fit_weibull_mle_censored(durations: Sequence[float], censored_flags: Sequence[bool] | None = None) -> WeibullFit:
+    """Fit Weibull with optional right-censoring using MLE."""
+    durations_arr = np.array(list(durations), dtype=float)
+    if durations_arr.size == 0:
+        raise ValueError("Cannot fit Weibull to empty data")
+    if censored_flags is None:
+        censored_arr = np.zeros_like(durations_arr, dtype=bool)
+    else:
+        censored_arr = np.array(list(censored_flags), dtype=bool)
+        if censored_arr.size != durations_arr.size:
+            raise ValueError("durations and censored_flags must be same length")
+
+    uncensored_guess = fit_weibull_mle(durations_arr[~censored_arr]) if np.any(~censored_arr) else None
+    init_shape = uncensored_guess.shape if uncensored_guess else 1.5
+    init_scale = uncensored_guess.scale if uncensored_guess else max(float(np.median(durations_arr)), 1e-6)
+    result = optimize.minimize(
+        _neg_log_likelihood,
+        x0=np.array([np.log(init_shape), np.log(init_scale)]),
+        args=(durations_arr, censored_arr),
+        method="L-BFGS-B",
+    )
+    if not result.success:
+        raise RuntimeError(f"Weibull MLE failed: {result.message}")
+    shape = float(np.exp(result.x[0]))
+    scale = float(np.exp(result.x[1]))
+    loglike = -_neg_log_likelihood(result.x, durations_arr, censored_arr)
+    return WeibullFit(shape=shape, scale=scale, log_likelihood=loglike)
+
+
+def bootstrap_weibull_ci(
+    data: Sequence[float],
+    censored_flags: Sequence[bool] | None = None,
+    n_bootstrap: int = 1000,
+    alpha: float = 0.05,
+    allow_uncensored_fallback: bool = True,
+) -> WeibullCI:
+    """Bootstrap confidence intervals for shape/scale parameters with optional censoring."""
     arr = np.array(list(data), dtype=float)
     if arr.size == 0:
         raise ValueError("Cannot bootstrap Weibull on empty data")
+    if censored_flags is None:
+        censored_arr = np.zeros_like(arr, dtype=bool)
+    else:
+        censored_arr = np.array(list(censored_flags), dtype=bool)
+        if censored_arr.size != arr.size:
+            raise ValueError("data and censored_flags must be same length")
+
     boot_shapes = []
     boot_scales = []
     rng = np.random.default_rng()
     for _ in range(n_bootstrap):
-        sample = rng.choice(arr, size=arr.size, replace=True)
-        fit = fit_weibull_mle(sample)
+        idx = rng.integers(0, arr.size, size=arr.size)
+        sample = arr[idx]
+        sample_cens = censored_arr[idx]
+        try:
+            fit = fit_weibull_mle_censored(sample, sample_cens)
+        except Exception:
+            if allow_uncensored_fallback:
+                fit = fit_weibull_mle(sample)
+            else:
+                raise
         boot_shapes.append(fit.shape)
         boot_scales.append(fit.scale)
     lower = alpha / 2

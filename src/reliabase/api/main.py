@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from reliabase.config import init_db
+from reliabase.api.routers import assets, exposures, events, failure_modes, event_details, parts
 
 app = FastAPI(title="RELIABASE", version="0.1.0")
 
@@ -16,6 +17,14 @@ def on_startup():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+app.include_router(assets.router)
+app.include_router(exposures.router)
+app.include_router(events.router)
+app.include_router(failure_modes.router)
+app.include_router(event_details.router)
+app.include_router(parts.router)
 
 
 def get_app() -> FastAPI:
