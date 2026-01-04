@@ -10,6 +10,8 @@ const navItems = [
   { to: "/event-details", label: "Event Details", icon: "🧩" },
   { to: "/failure-modes", label: "Failure Modes", icon: "⚠️" },
   { to: "/parts", label: "Parts", icon: "📦" },
+  { to: "/analytics", label: "Analytics", icon: "📈" },
+  { to: "/operations", label: "Operations", icon: "🛰" },
 ];
 
 interface Props {

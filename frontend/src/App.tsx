@@ -7,6 +7,8 @@ import Events from "./pages/Events";
 import FailureModes from "./pages/FailureModes";
 import Parts from "./pages/Parts";
 import EventDetails from "./pages/EventDetails";
+import Analytics from "./pages/Analytics";
+import Operations from "./pages/Operations";
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
         <Route path="/failure-modes" element={<FailureModes />} />
         <Route path="/event-details" element={<EventDetails />} />
         <Route path="/parts" element={<Parts />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/operations" element={<Operations />} />
       </Routes>
     </Shell>
   );

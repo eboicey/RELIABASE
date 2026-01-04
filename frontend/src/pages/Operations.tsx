@@ -1,0 +1,46 @@
+import { useQuery } from "@tanstack/react-query";
+import { listAssets, listEvents, listExposures, listFailureModes, listParts } from "../api/endpoints";
+import { Card } from "../components/Card";
+import { Button } from "../components/Button";
+import { exportAssets, exportEvents, exportExposures, exportFailureModes, exportParts } from "../utils/csv";
+
+export default function Operations() {
+  const { data: health } = useQuery({ queryKey: ["health"], queryFn: async () => fetch("/health").then((r) => r.json()) });
+  const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
+  const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 500 }) });
+  const { data: exposures } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 500 }) });
+  const { data: modes } = useQuery({ queryKey: ["failure-modes"], queryFn: () => listFailureModes({ limit: 500 }) });
+  const { data: parts } = useQuery({ queryKey: ["parts"], queryFn: () => listParts({ limit: 500 }) });
+
+  return (
+    <div className="space-y-6">
+      <Card title="API health" description="Pings /health on the backend">
+        <div className="flex items-center gap-3 text-sm">
+          <span className={`h-2 w-2 rounded-full ${health ? "bg-emerald-400" : "bg-red-400"}`} />
+          <span className="text-slate-200">{health ? "Backend reachable" : "Backend not reachable"}</span>
+        </div>
+      </Card>
+
+      <Card title="CSV export" description="Download the current tables directly from API responses.">
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={() => assets && exportAssets(assets)} disabled={!assets}>Export assets</Button>
+          <Button onClick={() => exposures && exportExposures(exposures)} disabled={!exposures}>Export exposures</Button>
+          <Button onClick={() => events && exportEvents(events)} disabled={!events}>Export events</Button>
+          <Button onClick={() => modes && exportFailureModes(modes)} disabled={!modes}>Export failure modes</Button>
+          <Button onClick={() => parts && exportParts(parts)} disabled={!parts}>Export parts</Button>
+        </div>
+      </Card>
+
+      <Card title="Demo + report" description="Run backend CLIs until HTTP endpoints exist for these actions.">
+        <ol className="list-decimal list-inside space-y-2 text-sm text-slate-300">
+          <li>Seed demo: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.seed_demo</code></li>
+          <li>Generate reliability packet: <code className="bg-slate-800 px-2 py-1 rounded">python -m reliabase.make_report --asset-id 1 --output-dir examples</code></li>
+          <li>CSV import (backend): use `reliabase.io.csv_io` helpers or extend API to add upload endpoints.</li>
+        </ol>
+        <p className="text-xs text-slate-400 mt-3">
+          If you want UI-based CSV import or server-side report generation, expose API endpoints and we will wire them here.
+        </p>
+      </Card>
+    </div>
+  );
+}
