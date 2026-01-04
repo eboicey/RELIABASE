@@ -59,6 +59,7 @@ flowchart TD
    ```bash
    python -m reliabase.seed_demo
    ```
+       (or hit `POST /demo/seed` with JSON `{ "reset": true }` if running the API)
 3) Generate a sample report (creates PDF + PNGs in ./examples):
    ```bash
    python -m reliabase.make_report --asset-id 1 --output-dir ./examples
@@ -95,6 +96,7 @@ flowchart TD
   ```bash
   uvicorn reliabase.api.main:app --reload
   ```
+   Optional: override CORS origins with `RELIABASE_CORS_ORIGINS` (comma-separated list) for the frontend.
 - Export tables to CSV (example):
   ```python
   from pathlib import Path

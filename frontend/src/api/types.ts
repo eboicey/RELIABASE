@@ -105,3 +105,24 @@ export interface PartInstallCreate {
 export interface Health {
   status: string;
 }
+
+export interface SeedResponse {
+  status: string;
+  reset: boolean;
+  created: {
+    assets: number;
+    exposures: number;
+    events: number;
+    failure_details: number;
+    parts: number;
+    installs: number;
+  };
+  totals: {
+    assets: number;
+    exposures: number;
+    events: number;
+    failure_details: number;
+    parts: number;
+    installs: number;
+  };
+}

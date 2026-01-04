@@ -15,6 +15,7 @@ import type {
   PartInstall,
   PartInstallCreate,
   Health,
+  SeedResponse,
 } from "./types";
 
 // Assets
@@ -60,3 +61,6 @@ export const deletePartInstall = (installId: number) => api.delete(`/parts/insta
 
 // Health
 export const getHealth = () => unwrap<Health>(api.get("/health"));
+
+// Demo
+export const seedDemo = (payload?: { reset?: boolean }) => unwrap<SeedResponse>(api.post("/demo/seed", payload ?? { reset: true }));

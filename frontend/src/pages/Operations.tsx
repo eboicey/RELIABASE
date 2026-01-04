@@ -1,13 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { listAssets, listEvents, listExposures, listFailureModes, listParts, getHealth } from "../api/endpoints";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listAssets, listEvents, listExposures, listFailureModes, listParts, getHealth, seedDemo } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { exportAssets, exportEvents, exportExposures, exportFailureModes, exportParts } from "../utils/csv";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
+import type { SeedResponse } from "../api/types";
 
 export default function Operations() {
+  const queryClient = useQueryClient();
   const { data: health, isLoading: healthLoading, isError: healthError } = useQuery({ queryKey: ["health"], queryFn: getHealth });
   const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: () => listAssets({ limit: 500 }) });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: () => listEvents({ limit: 500 }) });
@@ -17,9 +19,41 @@ export default function Operations() {
   const copyCommand = useCallback((cmd: string) => {
     void navigator.clipboard?.writeText(cmd);
   }, []);
+  const [seedResult, setSeedResult] = useState<SeedResponse | null>(null);
+
+  const seedMutation = useMutation({
+    mutationFn: (reset: boolean) => seedDemo({ reset }),
+    onSuccess: (data) => {
+      setSeedResult(data);
+      ["assets", "events", "exposures", "failure-modes", "event-details", "parts", "health"].forEach((key) =>
+        queryClient.invalidateQueries({ queryKey: [key] })
+      );
+    },
+  });
 
   return (
     <div className="space-y-6">
+      <Card title="Demo dataset" description="Trigger backend seeding without touching the CLI">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Button onClick={() => seedMutation.mutate(true)} disabled={seedMutation.isPending}>
+            {seedMutation.isPending ? "Seeding..." : "Seed demo data"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => seedMutation.mutate(false)} disabled={seedMutation.isPending}>
+            Append without reset
+          </Button>
+          {seedMutation.isError && <Alert tone="danger">Seeding failed. Is the backend running?</Alert>}
+        </div>
+        {seedResult && (
+          <div className="mt-3 text-sm text-slate-300 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span>Seeded {seedResult.created.assets} assets, {seedResult.created.events} events, {seedResult.created.exposures} exposures.</span>
+            </div>
+            <p className="text-xs text-slate-400">Totals now: {seedResult.totals.assets} assets, {seedResult.totals.events} events, {seedResult.totals.exposures} exposures.</p>
+          </div>
+        )}
+      </Card>
+
       <Card title="API health" description="Pings /health on the backend">
         <div className="flex items-center gap-3 text-sm">
           <span className={`h-2 w-2 rounded-full ${healthLoading ? "bg-amber-400 animate-pulse" : health?.status === "ok" ? "bg-emerald-400" : "bg-red-400"}`} />
