@@ -17,7 +17,7 @@ def _count(session: Session, model) -> int:
 
 
 @router.post("/seed")
-def seed_demo(reset: bool = Body(True, embed=True), session: SessionDep):
+def seed_demo(session: SessionDep, reset: bool = Body(True, embed=True)):
     """Seed the database with demo data. Optionally reset existing records."""
     summary = seed_demo_dataset(session, reset=reset)
     totals = {
