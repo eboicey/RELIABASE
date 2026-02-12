@@ -147,10 +147,10 @@ def main():
 
         w1, w2, w3, w4 = st.columns(4)
         w1.metric(
-            "Beta (Shape)", f"{beta:.2f}",
+            "Beta (Shape)", f"{beta:.3f}",
             help="Weibull shape parameter (β). Determines the failure pattern: "
                  "β < 1 = infant mortality, β ≈ 1 = random, β > 1 = wear-out. "
-                 f"95% CI: [{ci.shape_ci[0]:.2f}, {ci.shape_ci[1]:.2f}]",
+                 f"95% CI: [{ci.shape_ci[0]:.3f}, {ci.shape_ci[1]:.3f}]",
         )
         w2.metric(
             "Eta (Scale)", f"{weibull_fit.scale:.0f} h",
@@ -221,10 +221,11 @@ def main():
         )
 
         # Failure rate at median time
-        if intervals:
-            median_t = sorted(intervals)[len(intervals) // 2]
+        failure_intervals = [t for t, c in zip(intervals, censored) if not c]
+        if failure_intervals:
+            median_t = sorted(failure_intervals)[len(failure_intervals) // 2]
             fr = reliability_extended.compute_failure_rate(
-                total_failures=len(intervals),
+                total_failures=len(failure_intervals),
                 total_operating_hours=sum(intervals),
                 shape=weibull_fit.shape,
                 scale=weibull_fit.scale,
@@ -237,12 +238,14 @@ def main():
                      "A rising failure rate indicates wear-out.",
             )
 
-        # Repair trend
-        if len(intervals) >= 3:
-            re = reliability_extended.compute_repair_effectiveness(intervals)
-            if re.improving and re.trend_ratio <= 1.05:
+        # Repair trend (use only uncensored failure intervals)
+        if len(failure_intervals) >= 3:
+            re = reliability_extended.compute_repair_effectiveness(failure_intervals)
+            # ratio > 1 = later intervals longer = improving reliability
+            # ratio < 1 = later intervals shorter = degrading reliability
+            if re.trend_ratio >= 1.2:
                 trend_label = "Improving"
-            elif re.trend_ratio <= 1.2:
+            elif re.trend_ratio >= 0.8:
                 trend_label = "Stable"
             else:
                 trend_label = "Degrading"
@@ -253,8 +256,8 @@ def main():
                     "off" if trend_label == "Stable" else "inverse"
                 ),
                 help="Compares recent TBF intervals to earlier ones. "
-                     "Ratio < 1 = improving (intervals growing), "
-                     "Ratio > 1 = degrading (intervals shrinking), "
+                     "Ratio > 1 = improving (intervals growing), "
+                     "Ratio < 1 = degrading (intervals shrinking), "
                      "Ratio ≈ 1 = stable.",
             )
 
@@ -594,8 +597,9 @@ def main():
     # ========================================================================
     st.subheader("Time Between Failures Trend")
     st.caption(
-        "Tracks how TBF intervals change over time. "
-        "An upward trend means reliability is improving after repairs."
+        "Calendar-time gaps between consecutive failure events. "
+        "An upward trend means reliability is improving after repairs. "
+        "Note: these use wall-clock time, not operating hours."
     )
 
     if len(failure_events) >= 2:

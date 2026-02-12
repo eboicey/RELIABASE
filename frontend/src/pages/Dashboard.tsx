@@ -61,8 +61,8 @@ export default function Dashboard() {
     let wearOut = 0, infantMortality = 0, random = 0;
     for (const a of fleetAnalytics) {
       if (a.weibull) {
-        if (a.weibull.shape > 1) wearOut++;
-        else if (a.weibull.shape < 1) infantMortality++;
+        if (a.weibull.shape > 1.05) wearOut++;
+        else if (a.weibull.shape < 0.95) infantMortality++;
         else random++;
       }
     }

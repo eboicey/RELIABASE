@@ -160,13 +160,13 @@ def aggregate_kpis(exposures: Sequence[ExposureLog], events: Sequence[Event]) ->
     total_hours = sum(e.hours for e in exposures if e.hours and e.hours > 0)
     failure_rate = compute_failure_rate_simple(len(failure_events), total_hours)
     return FleetKPI(
-        mtbf_hours=mtbf_hours,
-        mttr_hours=mttr_hours,
-        availability=availability,
+        mtbf_hours=round(mtbf_hours, 2),
+        mttr_hours=round(mttr_hours, 2),
+        availability=round(availability, 4),
         intervals_hours=tbf.intervals_hours,
         censored_flags=tbf.censored_flags,
-        failure_rate=failure_rate,
-        total_exposure_hours=total_hours,
+        failure_rate=round(failure_rate, 6),
+        total_exposure_hours=round(total_hours, 2),
         failure_count=len(failure_events),
         total_events=len(events),
     )

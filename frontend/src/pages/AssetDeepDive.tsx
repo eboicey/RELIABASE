@@ -204,7 +204,7 @@ export default function AssetDeepDive() {
             />
             <StatWithTooltip
               label="MTTR (h)"
-              value={analytics.kpis.mttr_hours.toFixed(2)}
+              value={analytics.kpis.mttr_hours.toFixed(1)}
               tooltip={{
                 what: "Mean Time To Repair — average hours of downtime per failure event.",
                 why: "MTTR directly impacts availability and production loss. Lower MTTR = faster recovery from failures.",
@@ -293,7 +293,7 @@ export default function AssetDeepDive() {
                       />
                     </div>
                     <div className="text-lg font-medium text-white">
-                      {analytics.weibull.shape < 1 ? "Infant mortality" : analytics.weibull.shape === 1 ? "Random failures" : "Wear-out"}
+                      {analytics.weibull.shape < 0.95 ? "Infant mortality" : analytics.weibull.shape <= 1.05 ? "Random failures" : "Wear-out"}
                     </div>
                     <div className="text-xs text-slate-500 mt-1">
                       β {"<"} 1: early life, β = 1: random, β {">"} 1: wear-out

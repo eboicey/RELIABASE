@@ -58,7 +58,9 @@ def _neg_log_likelihood(log_params: np.ndarray, durations: np.ndarray, censored:
     exp_arg = shape * (log_t - log_scale)
     exp_arg_clipped = np.clip(exp_arg, -700, 700)  # prevents overflow in exp
 
-    log_pdf = np.log(shape) + (shape - 1) * (log_t - log_scale) - np.exp(exp_arg_clipped)
+    # Correct Weibull log-PDF: ln(β) - β·ln(η) + (β-1)·ln(t) - (t/η)^β
+    #   = ln(β) + (β-1)·(ln t - ln η) - ln η - (t/η)^β
+    log_pdf = np.log(shape) + (shape - 1) * (log_t - log_scale) - log_scale - np.exp(exp_arg_clipped)
     log_sf = -np.exp(exp_arg_clipped)
 
     ll = np.sum(log_pdf[observed]) + np.sum(log_sf[censored])

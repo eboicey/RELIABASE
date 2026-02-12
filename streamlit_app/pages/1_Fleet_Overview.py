@@ -228,8 +228,9 @@ def main():
     # ========================================================================
     st.subheader("Fleet MTBF Trend")
     st.caption(
-        "Time between consecutive failures across all fleet assets. "
-        "An upward trend means reliability is improving."
+        "Calendar-time gaps between consecutive fleet-wide failure events. "
+        "An upward trend means reliability is improving. "
+        "Note: these use wall-clock time, not operating hours."
     )
 
     if len(failure_events) >= 2:

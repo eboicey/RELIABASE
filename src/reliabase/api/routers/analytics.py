@@ -406,8 +406,10 @@ def get_extended_asset_analytics(
         b10_out = schemas.BLifeOut(percentile=b10.percentile, life_hours=b10.life_hours)
         mttf_val = reliability_extended.compute_mttf(weibull_fit.shape, weibull_fit.scale)
 
-    if intervals:
-        re = reliability_extended.compute_repair_effectiveness(intervals)
+    # Only use uncensored (complete failure-to-failure) intervals for repair trend
+    uncensored_intervals = [t for t, c in zip(intervals, censored) if not c]
+    if len(uncensored_intervals) >= 2:
+        re = reliability_extended.compute_repair_effectiveness(uncensored_intervals)
         repair_eff_out = schemas.RepairEffectivenessOut(
             trend_ratio=re.trend_ratio, intervals_count=re.intervals_count, improving=re.improving,
         )

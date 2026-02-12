@@ -38,7 +38,7 @@ def compute_b_life(shape: float, scale: float, percentile: float = 10.0) -> BLif
         raise ValueError("percentile must be in (0, 100)")
     p = percentile / 100.0
     life = scale * (-np.log(1 - p)) ** (1.0 / shape)
-    return BLifeResult(percentile=percentile, life_hours=float(life), shape=shape, scale=scale)
+    return BLifeResult(percentile=percentile, life_hours=round(float(life), 2), shape=shape, scale=scale)
 
 
 # ---------------------------------------------------------------------------
@@ -70,10 +70,10 @@ def compute_failure_rate(
     if shape and scale and current_age_hours and current_age_hours > 0:
         instant_rate = (shape / scale) * ((current_age_hours / scale) ** (shape - 1))
     return FailureRateResult(
-        average_rate=avg_rate,
-        instantaneous_rate=float(instant_rate),
+        average_rate=round(avg_rate, 6),
+        instantaneous_rate=round(float(instant_rate), 6),
         total_failures=total_failures,
-        total_hours=total_operating_hours,
+        total_hours=round(total_operating_hours, 2),
     )
 
 
@@ -104,7 +104,7 @@ def compute_conditional_reliability(
     return ConditionalReliabilityResult(
         current_age=current_age,
         mission_time=mission_time,
-        conditional_reliability=float(cond_r),
+        conditional_reliability=round(float(cond_r), 6),
     )
 
 
@@ -115,7 +115,7 @@ def compute_conditional_reliability(
 def compute_mttf(shape: float, scale: float) -> float:
     """MTTF from Weibull parameters: scale * Γ(1 + 1/shape)."""
     from math import gamma
-    return scale * gamma(1 + 1.0 / shape)
+    return round(scale * gamma(1 + 1.0 / shape), 2)
 
 
 # ---------------------------------------------------------------------------
@@ -126,8 +126,8 @@ def compute_mttf(shape: float, scale: float) -> float:
 class RepairEffectivenessResult:
     """Measures whether repairs restore the asset to good-as-new.
 
-    A trend ratio > 1 indicates degrading intervals (worsening reliability).
-    A trend ratio < 1 indicates improving intervals (effective repairs).
+    A trend ratio > 1 indicates improving intervals (later TBFs are longer).
+    A trend ratio < 1 indicates degrading intervals (later TBFs are shorter).
     A trend ratio ≈ 1 indicates as-good-as-old (minimal repair model).
     """
     trend_ratio: float         # ratio of median of later half vs. earlier half
@@ -150,7 +150,7 @@ def compute_repair_effectiveness(intervals: Sequence[float]) -> RepairEffectiven
     second_half = np.median(arr[mid:])
     ratio = second_half / first_half if first_half > 1e-12 else 1.0
     return RepairEffectivenessResult(
-        trend_ratio=float(ratio),
+        trend_ratio=round(float(ratio), 4),
         intervals_count=int(arr.size),
         improving=bool(ratio >= 1.0),
     )
