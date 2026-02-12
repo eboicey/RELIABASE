@@ -40,28 +40,69 @@ def main():
     
     # Demo Dataset Section
     st.subheader("Demo Dataset")
-    st.markdown("Seed sample data for testing and demonstration.")
+    st.markdown("Seed sample data for testing and demonstration. "
+                "The demo dataset includes **10 assets** across 4 equipment types with "
+                "realistic failure patterns (wear-out, random, infant mortality) and "
+                "correlated failure modes, root causes, and part replacements.")
     
-    col1, col2, col3 = st.columns([1, 1, 2])
+    col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
-        if st.button("🌱 Seed Demo Data", type="primary", use_container_width=True):
+        if st.button("🌱 Seed Demo Data", type="primary", use_container_width=True,
+                    help="Clear existing data and load a comprehensive demo dataset"):
             with get_session() as session:
-                svc = DemoService(session)
-                result = svc.seed(reset=True)
-                st.success(f"✅ Seeded {result['created']['assets']} assets, "
-                          f"{result['created']['events']} events, "
-                          f"{result['created']['exposures']} exposures!")
+                try:
+                    svc = DemoService(session)
+                    result = svc.seed(reset=True)
+                    c = result['created']
+                    st.success(
+                        f"✅ Demo dataset loaded!\n\n"
+                        f"**{c.get('assets', 0)}** assets, "
+                        f"**{c.get('exposures', 0)}** exposures, "
+                        f"**{c.get('events', 0)}** events, "
+                        f"**{c.get('failure_details', 0)}** failure details, "
+                        f"**{c.get('failure_modes', 0)}** failure modes, "
+                        f"**{c.get('parts', 0)}** parts, "
+                        f"**{c.get('installs', 0)}** part installs."
+                    )
+                except Exception as exc:
+                    st.error(f"❌ Seeding failed: {exc}")
                 st.rerun()
     
     with col2:
         if st.button("➕ Append Data", type="secondary", use_container_width=True, 
                     help="Add demo data without clearing existing"):
             with get_session() as session:
-                svc = DemoService(session)
-                result = svc.seed(reset=False)
-                st.success(f"Added {result['created']['assets']} assets, "
-                          f"{result['created']['events']} events!")
+                try:
+                    svc = DemoService(session)
+                    result = svc.seed(reset=False)
+                    c = result['created']
+                    st.success(f"Added {c.get('assets', 0)} assets, "
+                              f"{c.get('events', 0)} events!")
+                except Exception as exc:
+                    st.error(f"❌ Append failed: {exc}")
+                st.rerun()
+    
+    with col3:
+        if st.button("🗑️ Clear All Data", type="secondary", use_container_width=True,
+                    help="Remove all data from the database"):
+            with get_session() as session:
+                try:
+                    svc = DemoService(session)
+                    deleted = svc.clear()
+                    total = sum(deleted.values())
+                    if total > 0:
+                        st.success(
+                            f"🗑️ Cleared {deleted.get('assets', 0)} assets, "
+                            f"{deleted.get('events', 0)} events, "
+                            f"{deleted.get('exposures', 0)} exposures, "
+                            f"{deleted.get('failure_modes', 0)} failure modes, "
+                            f"{deleted.get('parts', 0)} parts."
+                        )
+                    else:
+                        st.info("Database is already empty.")
+                except Exception as exc:
+                    st.error(f"❌ Clear failed: {exc}")
                 st.rerun()
     
     # Show current totals

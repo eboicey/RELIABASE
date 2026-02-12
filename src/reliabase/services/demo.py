@@ -5,7 +5,7 @@ from typing import Dict
 from sqlmodel import Session, select, func
 
 from reliabase.models import Asset, Event, ExposureLog, FailureMode, EventFailureDetail, Part, PartInstall
-from reliabase.seed_demo import seed_demo_dataset
+from reliabase.seed_demo import seed_demo_dataset, _clear_existing
 
 
 class DemoService:
@@ -31,24 +31,38 @@ class DemoService:
         before = self._get_counts()
         
         # Seed the data
-        seed_demo_dataset(self.session, reset=reset)
+        summary = seed_demo_dataset(self.session, reset=reset)
         
         # Get counts after seeding
         after = self._get_counts()
         
-        # Calculate created counts
+        # Use the summary from seed_demo_dataset directly for created counts
         created = {
-            "assets": after["assets"] - (0 if reset else before["assets"]),
-            "events": after["events"] - (0 if reset else before["events"]),
-            "exposures": after["exposures"] - (0 if reset else before["exposures"]),
-            "failure_modes": after["failure_modes"] - (0 if reset else before["failure_modes"]),
-            "parts": after["parts"] - (0 if reset else before["parts"]),
+            "assets": summary.get("assets", 0),
+            "events": summary.get("events", 0),
+            "exposures": summary.get("exposures", 0),
+            "failure_modes": summary.get("failure_modes", 0),
+            "failure_details": summary.get("failure_details", 0),
+            "parts": summary.get("parts", 0),
+            "installs": summary.get("installs", 0),
         }
         
         return {
             "created": created,
             "totals": after,
         }
+    
+    def clear(self) -> Dict[str, int]:
+        """Clear all data from the database.
+        
+        Returns
+        -------
+        dict
+            Counts of records that were deleted.
+        """
+        before = self._get_counts()
+        _clear_existing(self.session)
+        return before
     
     def _get_counts(self) -> Dict[str, int]:
         """Get current counts of all data types."""
