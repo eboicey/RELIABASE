@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import tempfile
 from pathlib import Path
+from scipy import stats
 
 st.set_page_config(page_title="Asset Deep Dive - RELIABASE", page_icon="🔬", layout="wide")
 
@@ -223,28 +224,33 @@ def main():
         if intervals:
             median_t = sorted(intervals)[len(intervals) // 2]
             fr = reliability_extended.compute_failure_rate(
-                weibull_fit.shape, weibull_fit.scale, median_t
+                total_failures=len(intervals),
+                total_operating_hours=sum(intervals),
+                shape=weibull_fit.shape,
+                scale=weibull_fit.scale,
+                current_age_hours=median_t,
             )
             er2.metric(
-                "Failure Rate (median)", f"{fr.failure_rate:.4f} /h",
+                "Failure Rate (median)", f"{fr.instantaneous_rate:.4f} /h",
                 help=f"Instantaneous failure rate at the median operating time ({median_t:.0f}h). "
-                     f"Reliability at this point: {fr.reliability * 100:.1f}%. "
+                     f"Average rate: {fr.average_rate:.4f} /h. "
                      "A rising failure rate indicates wear-out.",
             )
 
         # Repair trend
         if len(intervals) >= 3:
             re = reliability_extended.compute_repair_effectiveness(intervals)
-            trend_label = {
-                "improving": "Improving",
-                "stable": "Stable",
-                "degrading": "Degrading",
-            }.get(re.trend, re.trend.title())
+            if re.improving and re.trend_ratio <= 1.05:
+                trend_label = "Improving"
+            elif re.trend_ratio <= 1.2:
+                trend_label = "Stable"
+            else:
+                trend_label = "Degrading"
             er3.metric(
                 "Repair Trend", trend_label,
                 delta=f"Ratio: {re.trend_ratio:.2f}",
-                delta_color="normal" if re.trend == "improving" else (
-                    "off" if re.trend == "stable" else "inverse"
+                delta_color="normal" if trend_label == "Improving" else (
+                    "off" if trend_label == "Stable" else "inverse"
                 ),
                 help="Compares recent TBF intervals to earlier ones. "
                      "Ratio < 1 = improving (intervals growing), "
@@ -276,12 +282,16 @@ def main():
                 cr = reliability_extended.compute_conditional_reliability(
                     weibull_fit.shape, weibull_fit.scale, current_age, mission_time
                 )
+                # Compute unconditional reliabilities for help text
+                _dist = stats.weibull_min(c=weibull_fit.shape, scale=weibull_fit.scale)
+                _r_t = _dist.sf(current_age)
+                _r_t_dt = _dist.sf(current_age + mission_time)
                 st.metric(
                     "Conditional R(t+Δt|t)", f"{cr.conditional_reliability * 100:.1f}%",
                     help=f"Probability this asset survives {mission_time:.0f} more hours "
                          f"given it has already run {current_age:.0f} hours. "
-                         f"Unconditional reliability at t: {cr.reliability_at_t * 100:.1f}%, "
-                         f"at t+Δt: {cr.reliability_at_t_plus_delta * 100:.1f}%.",
+                         f"Unconditional reliability at t: {_r_t * 100:.1f}%, "
+                         f"at t+Δt: {_r_t_dt * 100:.1f}%.",
                 )
     else:
         st.info("Extended reliability metrics require Weibull analysis (≥ 2 failure intervals).")
