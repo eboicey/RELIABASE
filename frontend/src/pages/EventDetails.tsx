@@ -9,6 +9,7 @@ import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
+import { MetricTooltip } from "../components/MetricTooltip";
 import { createEventDetail, deleteEventDetail, listAssets, listEventDetails, listEvents, listFailureModes, updateEventDetail } from "../api/endpoints";
 import type { EventFailureDetail } from "../api/types";
 import { useEffect, useMemo, useState } from "react";
@@ -113,7 +114,15 @@ export default function EventDetails() {
 
   return (
     <div className="space-y-6">
-      <Card title="Attach failure detail" description="Tie events to failure modes and corrective actions." actions={<span className="text-xs text-slate-400">POST /event-details/</span>}>
+      <Card title="Attach failure detail" description="Tie events to failure modes and corrective actions." actions={
+          <MetricTooltip
+            label="Event Details"
+            what="Event details link each failure event to its specific failure mode, root cause, corrective action, and replaced part."
+            why="Without event details, failures are just timestamps. Details enable Pareto analysis, FMEA/RPN scoring, and root cause trending."
+            basis="FMEA (Failure Mode and Effects Analysis) requires mapping each failure to its mode and cause. This data feeds RPN calculations and drives continuous improvement."
+            interpret="Attach details to every failure event. The root cause and corrective action fields are especially valuable for identifying recurring patterns and measuring corrective action effectiveness."
+          />
+        }>
         <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={form.handleSubmit((v) => createMutation.mutate(v))}>
           <div>
             <label className="text-sm text-slate-200">Event</label>

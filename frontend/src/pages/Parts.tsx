@@ -9,6 +9,7 @@ import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
+import { MetricTooltip } from "../components/MetricTooltip";
 import {
   createPart,
   createPartInstall,
@@ -154,7 +155,15 @@ export default function Parts() {
 
   return (
     <div className="space-y-6">
-      <Card title="Parts" description="Create parts to track installs." actions={<span className="text-xs text-slate-400">POST /parts/</span>}>
+      <Card title="Parts" description="Create parts to track installs." actions={
+          <MetricTooltip
+            label="Parts"
+            what="Parts are replaceable components installed on assets. Track part numbers, installation history, and replacement events."
+            why="Part tracking enables spare parts demand forecasting, part-level failure analysis, and inventory optimization."
+            basis="Spare parts demand follows Poisson distribution based on failure rates. Tracking install/remove history enables part-level reliability analysis separate from asset-level."
+            interpret="Register all critical spare parts. Link installations to assets for accurate demand forecasting and to identify parts that fail more frequently than expected."
+          />
+        }>
         <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={partForm.handleSubmit((v) => createPartMutation.mutate(v))}>
           <Input label="Name" placeholder="Seal" {...partForm.register("name")} />
           <Input label="Part number" placeholder="P-123" {...partForm.register("part_number")} />

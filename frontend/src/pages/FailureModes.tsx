@@ -10,6 +10,7 @@ import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
+import { MetricTooltip } from "../components/MetricTooltip";
 import { useEffect, useState } from "react";
 
 const schema = z.object({ name: z.string().min(1), category: z.string().optional() });
@@ -52,7 +53,15 @@ export default function FailureModes() {
 
   return (
     <div className="space-y-6">
-      <Card title="Add failure mode" description="Use consistent categories to enable Pareto charts." actions={<span className="text-xs text-slate-400">POST /failure-modes/</span>}>
+      <Card title="Add failure mode" description="Use consistent categories to enable Pareto charts." actions={
+          <MetricTooltip
+            label="Failure Modes"
+            what="Failure modes are the specific ways something can fail (e.g., bearing seizure, seal leak, motor burnout)."
+            why="Consistent failure mode classification enables Pareto analysis — identifying the vital few failure modes that cause the most problems."
+            basis="In FMEA methodology, a failure mode is 'the manner in which a component, subsystem, or system could potentially fail to meet its design intent.' Categories group related modes for higher-level analysis."
+            interpret="Define failure modes that are specific enough to be actionable but general enough to reveal patterns across assets. Use consistent naming."
+          />
+        }>
         <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={form.handleSubmit((v) => createMutation.mutate(v))}>
           <Input label="Name" placeholder="Seal leak" {...form.register("name")} />
           <Input label="Category" placeholder="Mechanical" {...form.register("category")} />

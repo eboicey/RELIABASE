@@ -12,6 +12,7 @@ import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
 import { createEvent, deleteEvent, listAssets, listEvents, updateEvent } from "../api/endpoints";
 import { format } from "date-fns";
+import { MetricTooltip } from "../components/MetricTooltip";
 
 const eventSchema = z.object({
   asset_id: z.coerce.number(),
@@ -113,7 +114,15 @@ export default function Events() {
 
   return (
     <div className="space-y-6">
-      <Card title="Log event" description="Normalize event_type to failure/maintenance/inspection" actions={<span className="text-xs text-slate-400">POST /events/</span>}>
+      <Card title="Log event" description="Normalize event_type to failure/maintenance/inspection" actions={
+          <MetricTooltip
+            label="Events"
+            what="Events record failures, maintenance activities, and inspections for each asset with timestamps and downtime duration."
+            why="Every failure event generates a data point for Weibull analysis, MTBF, and root cause identification. Maintenance events track repair effectiveness."
+            basis="In reliability theory, failure events define the failure time data used for parametric modeling (Weibull MLE). Event timestamps create the inter-failure intervals that determine the shape parameter β."
+            interpret="Record every event, especially failures, with accurate timestamps and downtime. The quality of your reliability analysis is only as good as your event data."
+          />
+        }>
         <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}>
           <div>
             <label className="text-sm text-slate-200">Asset</label>

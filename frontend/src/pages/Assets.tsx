@@ -12,6 +12,7 @@ import { Table, Th, Td } from "../components/Table";
 import { EmptyState } from "../components/EmptyState";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
+import { MetricTooltip } from "../components/MetricTooltip";
 
 const assetSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -74,7 +75,15 @@ export default function Assets() {
 
   return (
     <div className="space-y-6">
-      <Card title="Add asset" description="Basic metadata; link exposures and events later." actions={<span className="text-xs text-slate-400">POST /assets/</span>}>
+      <Card title="Add asset" description="Basic metadata; link exposures and events later." actions={
+          <MetricTooltip
+            label="Assets"
+            what="An asset is any piece of equipment, machine, or system you want to track reliability for."
+            why="Assets are the foundation of all reliability analysis. Every failure event, exposure log, and maintenance action ties back to a specific asset."
+            basis="In reliability engineering, an asset is the repairable system unit. Its failure history drives MTBF, Weibull analysis, and availability calculations."
+            interpret="Register every asset you want to monitor. Include serial numbers and in-service dates for accurate age-based analysis. Missing assets create blind spots in fleet statistics."
+          />
+        }>
         <form
           className="grid grid-cols-1 md:grid-cols-3 gap-4"
           onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}

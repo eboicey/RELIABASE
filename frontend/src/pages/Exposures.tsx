@@ -12,6 +12,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
 import { format } from "date-fns";
+import { MetricTooltip } from "../components/MetricTooltip";
 
 const exposureSchema = z.object({
   asset_id: z.coerce.number(),
@@ -110,7 +111,15 @@ export default function Exposures() {
 
   return (
     <div className="space-y-6">
-      <Card title="Log exposure" description="Hours default to duration if omitted." actions={<span className="text-xs text-slate-400">POST /exposures/</span>}>
+      <Card title="Log exposure" description="Hours default to duration if omitted." actions={
+          <MetricTooltip
+            label="Exposure Logs"
+            what="Exposure logs record the operating hours and cycles for each asset over specific time periods."
+            why="Accurate exposure data is the denominator for every time-based reliability metric (MTBF, failure rate, availability). Without it, reliability analysis is impossible."
+            basis="Reliability R(t) = e^(-λt) requires accurate operating time t. Exposure hours are to reliability what odometer readings are to automotive maintenance."
+            interpret="Log exposure consistently for every operating period. Gaps in exposure data will inflate MTBF estimates and distort Weibull analysis results."
+          />
+        }>
         <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}>
           <div>
             <label className="text-sm text-slate-200">Asset</label>
