@@ -83,6 +83,15 @@ def get_engine(database_url: str | None = None):
 
 
 def init_db(engine=None, database_url: str | None = None) -> None:
-    """Create database tables if they do not exist."""
+    """Create database tables if they do not exist.
+
+    Imports :mod:`reliabase.models` first to guarantee every SQLModel
+    table class is registered in ``SQLModel.metadata`` before
+    ``create_all`` runs.  Without this, an empty database would be
+    created and every query would raise ``OperationalError``.
+    """
+    # Ensure models are registered before creating tables
+    import reliabase.models  # noqa: F401
+
     engine = engine or get_engine(database_url)
     SQLModel.metadata.create_all(engine)

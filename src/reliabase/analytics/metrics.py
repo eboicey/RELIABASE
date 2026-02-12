@@ -52,6 +52,12 @@ class FleetKPI:
     def __contains__(self, key: object) -> bool:
         return key in self._FIELDS
 
+    def get(self, key: str, default: object = None) -> object:
+        """Dict-style ``.get()`` for backward compatibility."""
+        if key in self._FIELDS:
+            return getattr(self, key)
+        return default
+
 
 def compute_mtbf(time_between_failures: Iterable[float]) -> float:
     """Compute mean time between failures.

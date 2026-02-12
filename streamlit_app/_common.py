@@ -32,10 +32,19 @@ if _SRC_PATH not in sys.path:
 # ── lazy imports (only available after path is set) ───────────────────────
 from reliabase.config import get_engine, init_db, DEFAULT_DB_PATH  # noqa: E402
 
+# CRITICAL: Import ALL models so SQLModel.metadata registers every table
+# BEFORE init_db() calls create_all().  Without this import the database
+# is created empty and every subsequent query raises OperationalError
+# ("no such table").
+import reliabase.models  # noqa: E402,F401
+
 log.info("RELIABASE database path: %s", DEFAULT_DB_PATH)
 
 # Ensure tables exist on first import.
-init_db()
+try:
+    init_db()
+except Exception:
+    log.exception("Failed to initialise database — tables may be missing")
 
 
 # ── session helper ────────────────────────────────────────────────────────
@@ -45,9 +54,13 @@ def get_session() -> Iterator[Session]:
 
     Mirrors :func:`reliabase.database.get_session` so all Streamlit pages
     share the same engine/pool without each page re-creating its own.
+
+    ``expire_on_commit=False`` keeps loaded attributes accessible after
+    commit, which is important because Streamlit pages often use ORM
+    objects outside (after) the session context manager.
     """
     engine = get_engine()
-    with Session(engine) as session:
+    with Session(engine, expire_on_commit=False) as session:
         try:
             yield session
         except Exception:

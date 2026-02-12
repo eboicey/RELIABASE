@@ -14,8 +14,8 @@ reportlab>=4.0
 python-dotenv>=1.0
 typer>=0.9
 
-# streamlit UI
-streamlit>=1.31.0
+# streamlit UI (>= 1.38 required for st.datetime_input)
+streamlit>=1.38.0
 
 # testing
 pytest>=7.4
