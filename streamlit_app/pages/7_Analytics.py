@@ -1,6 +1,9 @@
-"""Analytics page - MTBF, MTTR, availability, and charts."""
+"""Analytics page - MTBF, MTTR, availability, Weibull analysis, and PDF reports."""
 import streamlit as st
 import pandas as pd
+import tempfile
+from pathlib import Path
+import numpy as np
 
 st.set_page_config(page_title="Analytics - RELIABASE", page_icon="📈", layout="wide")
 
@@ -10,6 +13,7 @@ from reliabase.services import (  # noqa: E402
     AssetService, EventService, ExposureService,
     FailureModeService, EventDetailService,
 )
+from reliabase.analytics import metrics, weibull, reporting  # noqa: E402
 
 
 def main():
@@ -190,21 +194,164 @@ def main():
     
     st.divider()
     
-    # CLI Commands for Advanced Analytics
-    st.subheader("Advanced Analytics")
-    st.markdown("""
-    For Weibull analysis and PDF reports, use the CLI:
+    # Weibull Analysis Section
+    st.subheader("📊 Weibull Analysis")
     
-    ```bash
-    python -m reliabase.make_report --asset-id 1 --output-dir ./examples
-    ```
-    
-    This generates:
-    - Weibull probability plots
-    - Failure mode Pareto charts
-    - Event timeline visualization
-    - Full PDF report
-    """)
+    if selected_asset_id is None:
+        st.info("Select a specific asset to perform Weibull analysis.")
+    else:
+        with get_session() as session:
+            asset_svc = AssetService(session)
+            event_svc = EventService(session)
+            exposure_svc = ExposureService(session)
+            detail_svc = EventDetailService(session)
+            mode_svc = FailureModeService(session)
+            
+            asset = asset_svc.get(selected_asset_id)
+            asset_exposures = exposure_svc.list(asset_id=selected_asset_id, limit=500)
+            asset_events = event_svc.list(asset_id=selected_asset_id, limit=500)
+            
+            # Calculate KPIs with censoring
+            kpi_data = metrics.aggregate_kpis(asset_exposures, asset_events)
+            intervals = kpi_data.get("intervals_hours", [])
+            censored = kpi_data.get("censored_flags", [])
+            
+            # Check if we have enough data for Weibull
+            uncensored_count = sum(1 for c in censored if not c) if censored else 0
+            
+            if uncensored_count >= 1:
+                try:
+                    # Fit Weibull
+                    weibull_fit = weibull.fit_weibull_mle_censored(intervals, censored)
+                    ci = weibull.bootstrap_weibull_ci(intervals, censored, n_bootstrap=200)
+                    
+                    # Display parameters
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Shape (β)", f"{weibull_fit.shape:.3f}")
+                        st.caption(f"95% CI: [{ci.shape_ci[0]:.3f}, {ci.shape_ci[1]:.3f}]")
+                    
+                    with col2:
+                        st.metric("Scale (η)", f"{weibull_fit.scale:.2f} h")
+                        st.caption(f"95% CI: [{ci.scale_ci[0]:.2f}, {ci.scale_ci[1]:.2f}]")
+                    
+                    with col3:
+                        # Interpret shape parameter
+                        if weibull_fit.shape < 1:
+                            pattern = "Infant Mortality"
+                            pattern_desc = "β < 1: Early life failures"
+                        elif weibull_fit.shape == 1:
+                            pattern = "Random Failures"
+                            pattern_desc = "β = 1: Constant failure rate"
+                        else:
+                            pattern = "Wear-out"
+                            pattern_desc = "β > 1: Aging/degradation"
+                        st.metric("Failure Pattern", pattern)
+                        st.caption(pattern_desc)
+                    
+                    with col4:
+                        # B10 life
+                        b10 = weibull_fit.scale * ((-np.log(0.9)) ** (1 / weibull_fit.shape))
+                        st.metric("B10 Life", f"{b10:.1f} h")
+                        st.caption("Time at which 10% fail")
+                    
+                    st.divider()
+                    
+                    # Reliability curves
+                    st.markdown("**Reliability & Hazard Curves**")
+                    
+                    max_time = max(intervals) * 1.5 if intervals else 1000
+                    times = np.linspace(0, max_time, 100)
+                    curves = weibull.reliability_curves(weibull_fit.shape, weibull_fit.scale, times)
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        rel_df = pd.DataFrame({
+                            "Time (hours)": times,
+                            "Reliability R(t)": curves.reliability,
+                        })
+                        st.line_chart(rel_df.set_index("Time (hours)"))
+                        st.caption("Probability of survival at time t")
+                    
+                    with col2:
+                        haz_df = pd.DataFrame({
+                            "Time (hours)": times,
+                            "Hazard h(t)": curves.hazard,
+                        })
+                        st.line_chart(haz_df.set_index("Time (hours)"))
+                        st.caption("Instantaneous failure rate")
+                    
+                    st.divider()
+                    
+                    # PDF Report Download
+                    st.subheader("📄 Download PDF Report")
+                    
+                    if st.button("Generate & Download PDF Report", type="primary"):
+                        with st.spinner("Generating report..."):
+                            # Get failure details for pareto
+                            all_details = detail_svc.list(limit=500)
+                            event_ids = {e.id for e in asset_events}
+                            asset_details = [d for d in all_details if d.event_id in event_ids]
+                            
+                            # Get failure mode names
+                            all_modes = mode_svc.list(limit=500)
+                            mode_names = {m.id: m.name for m in all_modes}
+                            
+                            failure_counts = {}
+                            for d in asset_details:
+                                name = mode_names.get(d.failure_mode_id, "Unknown")
+                                failure_counts[name] = failure_counts.get(name, 0) + 1
+                            
+                            # Build context for report
+                            context = {
+                                "asset": asset,
+                                "metrics": kpi_data,
+                                "weibull": {
+                                    "shape": weibull_fit.shape,
+                                    "scale": weibull_fit.scale,
+                                    "shape_ci": ci.shape_ci,
+                                    "scale_ci": ci.scale_ci,
+                                },
+                                "curves": {
+                                    "times": list(curves.times),
+                                    "reliability": list(curves.reliability),
+                                    "hazard": list(curves.hazard),
+                                },
+                                "events": [
+                                    {
+                                        "timestamp": e.timestamp,
+                                        "event_type": e.event_type,
+                                        "downtime_minutes": e.downtime_minutes or 0,
+                                        "description": e.description,
+                                    }
+                                    for e in asset_events
+                                ],
+                                "failure_counts": failure_counts,
+                            }
+                            
+                            # Generate PDF
+                            with tempfile.TemporaryDirectory() as tmpdir:
+                                output_dir = Path(tmpdir)
+                                pdf_path = reporting.generate_asset_report(output_dir, context)
+                                
+                                with open(pdf_path, "rb") as f:
+                                    pdf_bytes = f.read()
+                                
+                                st.download_button(
+                                    label="📥 Download PDF",
+                                    data=pdf_bytes,
+                                    file_name=f"asset_{selected_asset_id}_reliability_report.pdf",
+                                    mime="application/pdf",
+                                )
+                        
+                        st.success("Report generated! Click the download button above.")
+                
+                except Exception as e:
+                    st.error(f"Weibull fitting failed: {str(e)}")
+            else:
+                st.warning("Weibull analysis requires at least one complete failure interval. Log more failure events with exposure data.")
 
 
 main()
