@@ -17,6 +17,11 @@ import type {
   Health,
   SeedResponse,
   AssetAnalytics,
+  ExtendedAssetAnalytics,
+  BadActorEntryOut,
+  ConditionalReliabilityOut,
+  SpareDemandOut,
+  AssetHealthIndexOut,
 } from "./types";
 
 // Assets
@@ -79,3 +84,23 @@ export const downloadAssetReport = async (assetId: number): Promise<Blob> => {
   });
   return response.data as Blob;
 };
+
+// Extended analytics
+export const getExtendedAssetAnalytics = (
+  assetId: number,
+  params?: { n_bootstrap?: number; hourly_production_value?: number; avg_repair_cost?: number; quality_rate?: number },
+) => unwrap<ExtendedAssetAnalytics>(api.get(`/analytics/asset/${assetId}/extended`, { params }));
+
+export const getBadActors = (params?: { top_n?: number }) =>
+  unwrap<BadActorEntryOut[]>(api.get("/analytics/fleet/bad-actors", { params }));
+
+export const getConditionalReliability = (
+  assetId: number,
+  params?: { current_age_hours?: number; mission_time_hours?: number },
+) => unwrap<ConditionalReliabilityOut>(api.get(`/analytics/asset/${assetId}/conditional-reliability`, { params }));
+
+export const getSpareDemandForecast = (params?: { horizon_hours?: number }) =>
+  unwrap<SpareDemandOut>(api.get("/analytics/fleet/spare-demand", { params }));
+
+export const getFleetHealthSummary = (params?: { limit?: number }) =>
+  unwrap<AssetHealthIndexOut[]>(api.get("/analytics/fleet/health-summary", { params }));

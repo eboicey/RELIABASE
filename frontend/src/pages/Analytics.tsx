@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useCallback, Suspense, lazy, useEffect } from "react";
-import { listAssets, getAssetAnalytics, downloadAssetReport } from "../api/endpoints";
+import { listAssets, getAssetAnalytics, downloadAssetReport, getExtendedAssetAnalytics, getBadActors } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Stat } from "../components/Stat";
 import { Table, Th, Td } from "../components/Table";
@@ -35,6 +35,19 @@ export default function Analytics() {
     queryKey: ["analytics", selectedAssetId],
     queryFn: () => (selectedAssetId ? getAssetAnalytics(selectedAssetId) : Promise.resolve(null)),
     enabled: selectedAssetId !== null,
+  });
+
+  // Extended analytics (manufacturing + business + extended reliability)
+  const { data: extended, isLoading: extendedLoading } = useQuery({
+    queryKey: ["analytics-extended", selectedAssetId],
+    queryFn: () => (selectedAssetId ? getExtendedAssetAnalytics(selectedAssetId) : Promise.resolve(null)),
+    enabled: selectedAssetId !== null,
+  });
+
+  // Fleet bad actors
+  const { data: badActors } = useQuery({
+    queryKey: ["bad-actors"],
+    queryFn: () => getBadActors({ top_n: 10 }),
   });
 
   // MTBF trend from intervals
@@ -330,6 +343,325 @@ export default function Analytics() {
               <p className="text-sm text-slate-400">No events recorded for this asset.</p>
             )}
           </Card>
+
+          {/* ============================================================= */}
+          {/* Extended Analytics — Manufacturing, Business, Extended Rel.    */}
+          {/* ============================================================= */}
+          {extendedLoading && (
+            <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
+              <Spinner /> Loading extended analytics...
+            </div>
+          )}
+
+          {extended && !extendedLoading && (
+            <>
+              {/* ---- Asset Health Index ---- */}
+              {extended.health_index && (
+                <Card title="Asset Health Index" description="Composite 0-100 score from reliability, OEE, downtime quality, and repair trends">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="flex flex-col items-center justify-center bg-ink-900/50 rounded-lg p-6">
+                      <div className={`text-5xl font-bold ${
+                        extended.health_index.grade === "A" ? "text-emerald-400" :
+                        extended.health_index.grade === "B" ? "text-green-400" :
+                        extended.health_index.grade === "C" ? "text-amber-400" :
+                        extended.health_index.grade === "D" ? "text-orange-400" : "text-red-400"
+                      }`}>
+                        {extended.health_index.score.toFixed(0)}
+                      </div>
+                      <div className={`text-3xl font-semibold mt-1 ${
+                        extended.health_index.grade === "A" ? "text-emerald-400" :
+                        extended.health_index.grade === "B" ? "text-green-400" :
+                        extended.health_index.grade === "C" ? "text-amber-400" :
+                        extended.health_index.grade === "D" ? "text-orange-400" : "text-red-400"
+                      }`}>
+                        Grade {extended.health_index.grade}
+                      </div>
+                    </div>
+                    <div className="md:col-span-2 grid grid-cols-2 lg:grid-cols-3 gap-3">
+                      {Object.entries(extended.health_index.components).map(([key, val]) => (
+                        <div key={key} className="bg-ink-900/50 rounded-lg p-3">
+                          <div className="text-xs text-slate-400 capitalize">{key.replace(/_/g, " ")}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  val >= 80 ? "bg-emerald-500" : val >= 60 ? "bg-amber-500" : "bg-red-500"
+                                }`}
+                                style={{ width: `${Math.min(val, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium text-white w-10 text-right">{val.toFixed(0)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* ---- Extended Reliability Metrics ---- */}
+              <Card title="Extended Reliability" description="B-life, failure rate, MTTF, and repair trend analysis">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                  {extended.b10_life && (
+                    <div className="bg-ink-900/50 rounded-lg p-4">
+                      <div className="text-sm text-slate-400 mb-1">B10 Life</div>
+                      <div className="text-2xl font-semibold text-white">{extended.b10_life.life_hours.toFixed(1)} h</div>
+                      <div className="text-xs text-slate-500 mt-1">10% of population fails by this time</div>
+                    </div>
+                  )}
+                  {extended.mttf_hours != null && (
+                    <div className="bg-ink-900/50 rounded-lg p-4">
+                      <div className="text-sm text-slate-400 mb-1">MTTF</div>
+                      <div className="text-2xl font-semibold text-white">{extended.mttf_hours.toFixed(1)} h</div>
+                      <div className="text-xs text-slate-500 mt-1">Mean time to failure (Weibull)</div>
+                    </div>
+                  )}
+                  {extended.failure_rate && (
+                    <div className="bg-ink-900/50 rounded-lg p-4">
+                      <div className="text-sm text-slate-400 mb-1">Failure Rate (λ)</div>
+                      <div className="text-2xl font-semibold text-white">{(extended.failure_rate.average_rate * 1000).toFixed(2)}</div>
+                      <div className="text-xs text-slate-500 mt-1">per 1,000 hours (avg)</div>
+                    </div>
+                  )}
+                  {extended.repair_effectiveness && (
+                    <div className="bg-ink-900/50 rounded-lg p-4">
+                      <div className="text-sm text-slate-400 mb-1">Repair Trend</div>
+                      <div className={`text-2xl font-semibold ${extended.repair_effectiveness.improving ? "text-emerald-400" : "text-red-400"}`}>
+                        {extended.repair_effectiveness.trend_ratio.toFixed(2)}×
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {extended.repair_effectiveness.improving ? "Improving — repairs are effective" : "Degrading — investigate root cause"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* ---- RPN / FMEA ---- */}
+              {extended.rpn && extended.rpn.entries.length > 0 && (
+                <Card title="Risk Priority Number (RPN)" description="FMEA-style ranking: Severity × Occurrence × Detection">
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Failure Mode</Th>
+                        <Th>Severity</Th>
+                        <Th>Occurrence</Th>
+                        <Th>Detection</Th>
+                        <Th>RPN</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {extended.rpn.entries.map((e) => (
+                        <tr key={e.failure_mode} className="odd:bg-ink-900">
+                          <Td>{e.failure_mode}</Td>
+                          <Td>{e.severity}</Td>
+                          <Td>{e.occurrence}</Td>
+                          <Td>{e.detection}</Td>
+                          <Td>
+                            <span className={`font-semibold ${e.rpn >= 200 ? "text-red-400" : e.rpn >= 100 ? "text-amber-400" : "text-emerald-400"}`}>
+                              {e.rpn}
+                            </span>
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </Card>
+              )}
+
+              {/* ---- Manufacturing / OEE ---- */}
+              {extended.manufacturing && (
+                <Card title="Manufacturing Performance" description="OEE framework — Availability × Performance × Quality">
+                  <div className="space-y-6">
+                    {/* OEE gauge row */}
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
+                      <div className="bg-ink-900/50 rounded-lg p-4 text-center">
+                        <div className="text-sm text-slate-400 mb-1">OEE</div>
+                        <div className={`text-3xl font-bold ${
+                          extended.manufacturing.oee.oee >= 0.85 ? "text-emerald-400" :
+                          extended.manufacturing.oee.oee >= 0.65 ? "text-amber-400" : "text-red-400"
+                        }`}>
+                          {(extended.manufacturing.oee.oee * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          {extended.manufacturing.oee.oee >= 0.85 ? "World-class" :
+                           extended.manufacturing.oee.oee >= 0.65 ? "Typical" : "Below average"}
+                        </div>
+                      </div>
+                      <div className="bg-ink-900/50 rounded-lg p-4 text-center">
+                        <div className="text-sm text-slate-400 mb-1">Availability</div>
+                        <div className="text-2xl font-semibold text-white">{(extended.manufacturing.oee.availability * 100).toFixed(1)}%</div>
+                      </div>
+                      <div className="bg-ink-900/50 rounded-lg p-4 text-center">
+                        <div className="text-sm text-slate-400 mb-1">Performance</div>
+                        <div className="text-2xl font-semibold text-white">{(extended.manufacturing.oee.performance * 100).toFixed(1)}%</div>
+                      </div>
+                      <div className="bg-ink-900/50 rounded-lg p-4 text-center">
+                        <div className="text-sm text-slate-400 mb-1">Quality</div>
+                        <div className="text-2xl font-semibold text-white">{(extended.manufacturing.oee.quality * 100).toFixed(1)}%</div>
+                      </div>
+                    </div>
+
+                    {/* Downtime split */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <h3 className="text-sm font-medium text-slate-300 mb-3">Downtime Breakdown</h3>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-400">Planned</span>
+                            <span className="text-white font-medium">{extended.manufacturing.downtime_split.planned_downtime_hours.toFixed(1)} h ({extended.manufacturing.downtime_split.planned_count} events)</span>
+                          </div>
+                          <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-green-500 rounded-full"
+                              style={{ width: `${extended.manufacturing.downtime_split.total_downtime_hours > 0 ? ((1 - extended.manufacturing.downtime_split.unplanned_ratio) * 100) : 0}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-400">Unplanned</span>
+                            <span className="text-white font-medium">{extended.manufacturing.downtime_split.unplanned_downtime_hours.toFixed(1)} h ({extended.manufacturing.downtime_split.unplanned_count} events)</span>
+                          </div>
+                          <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-red-500 rounded-full"
+                              style={{ width: `${extended.manufacturing.downtime_split.unplanned_ratio * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-ink-900/50 rounded-lg p-3">
+                          <div className="text-xs text-slate-400">MTBM</div>
+                          <div className="text-xl font-semibold text-white mt-1">{extended.manufacturing.mtbm.mtbm_hours.toFixed(1)} h</div>
+                          <div className="text-xs text-slate-500">Mean time between maintenance</div>
+                        </div>
+                        <div className="bg-ink-900/50 rounded-lg p-3">
+                          <div className="text-xs text-slate-400">Throughput</div>
+                          <div className="text-xl font-semibold text-white mt-1">{extended.manufacturing.performance.actual_throughput.toFixed(1)}</div>
+                          <div className="text-xs text-slate-500">cycles/hour (design: {extended.manufacturing.performance.design_throughput.toFixed(1)})</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* ---- Business Impact ---- */}
+              <Card title="Business Impact" description="Cost of unreliability and PM optimization">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* COUR */}
+                  {extended.cour && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-slate-300">Cost of Unreliability</h3>
+                      <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                        <div className="text-3xl font-bold text-red-400">
+                          ${extended.cour.total_cost.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">Estimated total cost</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="bg-ink-900/50 rounded p-2">
+                          <div className="text-xs text-slate-400">Lost Production</div>
+                          <div className="text-white font-medium">${extended.cour.lost_production_cost.toLocaleString()}</div>
+                        </div>
+                        <div className="bg-ink-900/50 rounded p-2">
+                          <div className="text-xs text-slate-400">Repair Cost</div>
+                          <div className="text-white font-medium">${extended.cour.repair_cost.toLocaleString()}</div>
+                        </div>
+                        <div className="bg-ink-900/50 rounded p-2">
+                          <div className="text-xs text-slate-400">Cost per Failure</div>
+                          <div className="text-white font-medium">${extended.cour.cost_per_failure.toLocaleString()}</div>
+                        </div>
+                        <div className="bg-ink-900/50 rounded p-2">
+                          <div className="text-xs text-slate-400">Unplanned DT</div>
+                          <div className="text-white font-medium">{extended.cour.unplanned_downtime_hours.toFixed(1)} h</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PM Optimization */}
+                  {extended.pm_optimization && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-slate-300">PM Optimization</h3>
+                      <div className={`rounded-lg border p-4 ${
+                        extended.pm_optimization.assessment === "appropriate" ? "bg-emerald-900/20 border-emerald-500/30" :
+                        extended.pm_optimization.assessment === "pm_not_recommended" ? "bg-blue-900/20 border-blue-500/30" :
+                        extended.pm_optimization.assessment === "over_maintaining" ? "bg-amber-900/20 border-amber-500/30" :
+                        "bg-red-900/20 border-red-500/30"
+                      }`}>
+                        <div className="text-lg font-semibold text-white capitalize">
+                          {extended.pm_optimization.failure_pattern.replace(/_/g, " ")}
+                        </div>
+                        <div className="text-sm text-slate-300 mt-1">
+                          {extended.pm_optimization.assessment === "pm_not_recommended"
+                            ? "Preventive maintenance may not reduce failures. Consider condition-based monitoring."
+                            : extended.pm_optimization.assessment === "appropriate"
+                            ? "Current PM interval is well-matched to failure behavior."
+                            : extended.pm_optimization.assessment === "over_maintaining"
+                            ? "PM is more frequent than necessary. Consider extending intervals."
+                            : extended.pm_optimization.assessment === "under_maintaining"
+                            ? "PM is too infrequent. Risk of unplanned failures. Decrease interval."
+                            : "Insufficient PM scheduling data for comparison."}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="bg-ink-900/50 rounded p-2">
+                          <div className="text-xs text-slate-400">Weibull β</div>
+                          <div className="text-white font-medium">{extended.pm_optimization.weibull_shape.toFixed(3)}</div>
+                        </div>
+                        <div className="bg-ink-900/50 rounded p-2">
+                          <div className="text-xs text-slate-400">Recommended PM</div>
+                          <div className="text-white font-medium">{extended.pm_optimization.recommended_pm_hours.toFixed(0)} h</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </>
+          )}
+
+          {/* ---- Fleet Bad Actors ---- */}
+          {badActors && badActors.length > 0 && (
+            <Card title="Fleet Bad Actors" description="Top worst-performing assets by composite score (failures, downtime, availability)">
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Rank</Th>
+                    <Th>Asset</Th>
+                    <Th>Failures</Th>
+                    <Th>Downtime (h)</Th>
+                    <Th>Availability</Th>
+                    <Th>Score</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {badActors.map((ba, idx) => (
+                    <tr key={ba.asset_id} className="odd:bg-ink-900">
+                      <Td>{idx + 1}</Td>
+                      <Td>
+                        <button
+                          className="text-accent-400 hover:underline"
+                          onClick={() => setSelectedAssetId(ba.asset_id)}
+                        >
+                          {ba.asset_name}
+                        </button>
+                      </Td>
+                      <Td>{ba.failure_count}</Td>
+                      <Td>{ba.total_downtime_hours.toFixed(1)}</Td>
+                      <Td>{(ba.availability * 100).toFixed(1)}%</Td>
+                      <Td>
+                        <span className={`font-semibold ${ba.composite_score >= 0.7 ? "text-red-400" : ba.composite_score >= 0.4 ? "text-amber-400" : "text-emerald-400"}`}>
+                          {ba.composite_score.toFixed(3)}
+                        </span>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card>
+          )}
         </>
       )}
 

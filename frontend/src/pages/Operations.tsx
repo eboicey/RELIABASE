@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listAssets, listEvents, listExposures, listFailureModes, listParts, getHealth, seedDemo } from "../api/endpoints";
+import { listAssets, listEvents, listExposures, listFailureModes, listParts, getHealth, seedDemo, getSpareDemandForecast, getBadActors } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { Table, Th, Td } from "../components/Table";
 import { exportAssets, exportEvents, exportExposures, exportFailureModes, exportParts } from "../utils/csv";
 import { Spinner } from "../components/Spinner";
 import { Alert } from "../components/Alert";
@@ -20,6 +21,18 @@ export default function Operations() {
     void navigator.clipboard?.writeText(cmd);
   }, []);
   const [seedResult, setSeedResult] = useState<SeedResponse | null>(null);
+
+  // Spare parts forecast
+  const { data: spareDemand } = useQuery({
+    queryKey: ["spare-demand"],
+    queryFn: () => getSpareDemandForecast({ horizon_hours: 8760 }),
+  });
+
+  // Bad actors for ops overview
+  const { data: badActors } = useQuery({
+    queryKey: ["bad-actors-ops"],
+    queryFn: () => getBadActors({ top_n: 5 }),
+  });
 
   const seedMutation = useMutation({
     mutationFn: (reset: boolean) => seedDemo({ reset }),
@@ -74,6 +87,57 @@ export default function Operations() {
         </div>
         {(events === null || exposures === null) && <Alert tone="danger">Could not load data to export.</Alert>}
       </Card>
+
+      {/* Spare Parts Forecast */}
+      {spareDemand && spareDemand.forecasts.length > 0 && (
+        <Card title="Spare Parts Forecast" description={`Projected demand over ${(spareDemand.horizon_hours / 720).toFixed(0)} months (Poisson 90% CI)`}>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Part</Th>
+                <Th>Expected Failures</Th>
+                <Th>Lower (5%)</Th>
+                <Th>Upper (95%)</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {spareDemand.forecasts.map((f) => (
+                <tr key={f.part_name} className="odd:bg-ink-900">
+                  <Td>{f.part_name}</Td>
+                  <Td className="font-medium text-white">{f.expected_failures.toFixed(1)}</Td>
+                  <Td>{f.lower_bound}</Td>
+                  <Td>{f.upper_bound}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          <div className="mt-3 text-sm text-slate-400">
+            Total expected replacements: <span className="text-white font-medium">{spareDemand.total_expected_failures.toFixed(1)}</span>
+          </div>
+        </Card>
+      )}
+
+      {/* Bad Actors Quick View */}
+      {badActors && badActors.length > 0 && (
+        <Card title="Worst Performers" description="Top 5 bad actors by composite unreliability score">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-5">
+            {badActors.map((ba, idx) => (
+              <div key={ba.asset_id} className={`rounded-lg border p-3 text-center ${
+                idx === 0 ? "bg-red-900/20 border-red-500/30" :
+                idx === 1 ? "bg-orange-900/20 border-orange-500/30" :
+                "bg-ink-900/50 border-slate-700"
+              }`}>
+                <div className="text-xs text-slate-400 truncate" title={ba.asset_name}>{ba.asset_name}</div>
+                <div className={`text-xl font-bold mt-1 ${idx < 2 ? "text-red-400" : "text-amber-400"}`}>
+                  {ba.failure_count}
+                </div>
+                <div className="text-xs text-slate-500">failures</div>
+                <div className="text-xs text-slate-400 mt-1">{ba.total_downtime_hours.toFixed(1)}h DT</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card title="CLI Commands" description="Generate reports and manage data via terminal commands.">
         <div className="space-y-4 text-sm">

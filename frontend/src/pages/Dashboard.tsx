@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { listAssets, listEvents, listExposures, getHealth, seedDemo } from "../api/endpoints";
+import { listAssets, listEvents, listExposures, getHealth, seedDemo, getFleetHealthSummary } from "../api/endpoints";
 import { Card } from "../components/Card";
 import { Stat } from "../components/Stat";
 import { Table, Th, Td } from "../components/Table";
@@ -16,6 +16,12 @@ export default function Dashboard() {
   const { data: exposures } = useQuery({ queryKey: ["exposures"], queryFn: () => listExposures({ limit: 200 }) });
   const { data: health, isLoading: healthLoading } = useQuery({ queryKey: ["health"], queryFn: getHealth });
   const [seedSuccess, setSeedSuccess] = useState(false);
+
+  // Fleet health summary
+  const { data: fleetHealth } = useQuery({
+    queryKey: ["fleet-health"],
+    queryFn: () => getFleetHealthSummary({ limit: 50 }),
+  });
   
   const copyCommand = useCallback((cmd: string) => {
     void navigator.clipboard?.writeText(cmd);
@@ -53,6 +59,41 @@ export default function Dashboard() {
         <Stat label="Failures" value={`${failureCount}`} hint="Event type = failure" />
         <Stat label="Exposure hours" value={`${totalHours.toFixed(1)}`} hint="Sum of exposure logs" />
       </div>
+
+      {/* Fleet Health Heatmap */}
+      {fleetHealth && fleetHealth.length > 0 && assets && assets.length > 0 && (
+        <Card title="Fleet Health" description="Asset health scores at a glance — click Analytics for full detail">
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {fleetHealth.map((hi, idx) => {
+              const asset = assets[idx];
+              const name = asset?.name ?? `Asset ${idx + 1}`;
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-lg p-3 text-center border ${
+                    hi.grade === "A" ? "bg-emerald-900/20 border-emerald-500/30" :
+                    hi.grade === "B" ? "bg-green-900/20 border-green-500/30" :
+                    hi.grade === "C" ? "bg-amber-900/20 border-amber-500/30" :
+                    hi.grade === "D" ? "bg-orange-900/20 border-orange-500/30" :
+                    "bg-red-900/20 border-red-500/30"
+                  }`}
+                >
+                  <div className="text-xs text-slate-400 truncate" title={name}>{name}</div>
+                  <div className={`text-2xl font-bold mt-1 ${
+                    hi.grade === "A" ? "text-emerald-400" :
+                    hi.grade === "B" ? "text-green-400" :
+                    hi.grade === "C" ? "text-amber-400" :
+                    hi.grade === "D" ? "text-orange-400" : "text-red-400"
+                  }`}>
+                    {hi.score.toFixed(0)}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">Grade {hi.grade}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Recent Events */}
       <Card
