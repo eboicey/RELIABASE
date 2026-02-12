@@ -16,6 +16,7 @@ import type {
   PartInstallCreate,
   Health,
   SeedResponse,
+  AssetAnalytics,
 } from "./types";
 
 // Assets
@@ -64,3 +65,17 @@ export const getHealth = () => unwrap<Health>(api.get("/health"));
 
 // Demo
 export const seedDemo = (payload?: { reset?: boolean }) => unwrap<SeedResponse>(api.post("/demo/seed", payload ?? { reset: true }));
+
+// Analytics
+export const getAssetAnalytics = (assetId: number, params?: { n_bootstrap?: number }) =>
+  unwrap<AssetAnalytics>(api.get(`/analytics/asset/${assetId}`, { params }));
+
+export const getFleetAnalytics = (params?: { limit?: number }) =>
+  unwrap<AssetAnalytics[]>(api.get("/analytics/fleet", { params }));
+
+export const downloadAssetReport = async (assetId: number): Promise<Blob> => {
+  const response = await api.get(`/analytics/asset/${assetId}/report`, {
+    responseType: "blob",
+  });
+  return response.data as Blob;
+};

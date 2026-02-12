@@ -126,3 +126,52 @@ export interface SeedResponse {
     installs: number;
   };
 }
+
+// Analytics types
+export interface WeibullParams {
+  shape: number;
+  scale: number;
+  log_likelihood: number;
+  shape_ci: [number, number];
+  scale_ci: [number, number];
+}
+
+export interface ReliabilityCurveData {
+  times: number[];
+  reliability: number[];
+  hazard: number[];
+}
+
+export interface KPIMetrics {
+  mtbf_hours: number;
+  mttr_hours: number;
+  availability: number;
+  failure_count: number;
+  total_exposure_hours: number;
+}
+
+export interface FailureModeCount {
+  name: string;
+  count: number;
+  category?: string | null;
+}
+
+export interface EventSummary {
+  id: number;
+  timestamp: string;
+  event_type: string;
+  downtime_minutes: number;
+  description?: string | null;
+}
+
+export interface AssetAnalytics {
+  asset_id: number;
+  asset_name: string;
+  kpis: KPIMetrics;
+  weibull: WeibullParams | null;
+  curves: ReliabilityCurveData | null;
+  failure_modes: FailureModeCount[];
+  recent_events: EventSummary[];
+  intervals_hours: number[];
+  censored_flags: boolean[];
+}

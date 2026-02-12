@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from reliabase.config import init_db
-from reliabase.api.routers import assets, exposures, events, failure_modes, event_details, parts, demo
+from reliabase.api.routers import assets, exposures, events, failure_modes, event_details, parts, demo, analytics
 
 app = FastAPI(title="RELIABASE", version="0.1.0")
 
@@ -42,6 +42,7 @@ app.include_router(failure_modes.router)
 app.include_router(event_details.router)
 app.include_router(parts.router)
 app.include_router(demo.router)
+app.include_router(analytics.router)
 
 
 def get_app() -> FastAPI:

@@ -52,12 +52,19 @@ Or via CLI:
 python -m reliabase.seed_demo
 ```
 
-### Generate a Reliability Report
+### Analytics & Reports
 
+Weibull analysis, reliability curves, and PDF reports are fully integrated into the UI:
+
+1. Navigate to **Analytics** in the sidebar
+2. Select an asset from the dropdown
+3. View Weibull parameters, reliability curves, and failure mode breakdown
+4. Click **"Download PDF Report"** for a complete reliability packet
+
+#### CLI Alternative (Optional)
 ```bash
 python -m reliabase.make_report --asset-id 1 --output-dir ./examples
 ```
-This creates a PDF report + PNG charts in the `examples/` folder.
 
 ---
 
@@ -127,6 +134,7 @@ RELIABASE/
 - ✅ **Failure Mode Pareto** — ranked failure causes
 
 ### Reporting & Export
+- ✅ **In-app PDF generation** — download reliability packets directly from the Analytics page
 - ✅ PDF reliability packet with KPI summary, plots, and event timeline
 - ✅ CSV export for all tables (via UI)
 - ✅ PNG chart exports (Weibull curves, Pareto, timeline)
@@ -207,6 +215,9 @@ uvicorn reliabase.api.main:app --host 127.0.0.1 --port 8000 --reload
 | `/parts/` | GET, POST | List/create parts |
 | `/parts/{id}/installs` | GET, POST | Part installation history |
 | `/demo/seed` | POST | Seed demo data (reset optional) |
+| `/analytics/asset/{id}` | GET | Weibull analysis, KPIs, curves for asset |
+| `/analytics/asset/{id}/report` | GET | Download PDF reliability report |
+| `/analytics/fleet` | GET | Analytics summary for all assets |
 
 Full API docs available at **http://localhost:8000/docs** when backend is running.
 
