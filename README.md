@@ -10,8 +10,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Python 3.11+** (for backend)
-- **Node.js 18+** (for frontend)
+- **Python 3.11+**
 - Git
 
 ### Installation
@@ -32,45 +31,26 @@ source .venv/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt
-
-# Install frontend dependencies
-cd frontend
-npm install
-cd ..
 ```
 
-### Running the Application
+### Running the Application (Streamlit)
 
-**You need TWO terminal windows running simultaneously:**
-
-#### Terminal 1 — Backend (FastAPI)
 ```bash
-# From the RELIABASE root directory
-uvicorn reliabase.api.main:app --host 127.0.0.1 --port 8000 --reload
+streamlit run streamlit_app/Home.py
 ```
-The API will be available at **http://localhost:8000**
 
-#### Terminal 2 — Frontend (React + Vite)
-```bash
-# From the frontend directory
-cd frontend
-npm run dev
-```
-The UI will be available at **http://localhost:5173**
+The app will open in your browser at **http://localhost:8501**
 
 ### First-Time Setup: Seed Demo Data
 
-With the backend running, seed the database with sample data:
+1. Open the app in your browser
+2. Navigate to **Operations** in the sidebar
+3. Click **"🌱 Seed Demo Data"** button
 
-**Option A — Via CLI (new terminal):**
+Or via CLI:
 ```bash
 python -m reliabase.seed_demo
 ```
-
-**Option B — Via UI:**
-1. Open http://localhost:5173
-2. Navigate to **Operations** in the left sidebar
-3. Click **"Seed demo data"** button
 
 ### Generate a Reliability Report
 
@@ -85,8 +65,8 @@ This creates a PDF report + PNG charts in the `examples/` folder.
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | Python 3.11+, FastAPI, SQLModel, SQLite |
-| **Frontend** | React 18, TypeScript, Vite, TailwindCSS |
+| **UI** | Streamlit 1.31+ |
+| **Backend** | Python 3.11+, SQLModel, SQLite |
 | **Analytics** | Pandas, NumPy, SciPy (Weibull MLE) |
 | **Reporting** | Matplotlib (plots), ReportLab (PDF) |
 | **Testing** | Pytest (30+ tests) |
@@ -95,21 +75,25 @@ This creates a PDF report + PNG charts in the `examples/` folder.
 
 ## 🏗️ Architecture
 
-```mermaid
-flowchart TD
-   subgraph Frontend
-      UI[React SPA] --> API_CLIENT[Axios Client]
-   end
-   subgraph Backend
-      API_CLIENT --> ROUTES[FastAPI Routers]
-      ROUTES --> MODELS[SQLModel ORM]
-      MODELS --> DB[(SQLite)]
-      ROUTES --> ANALYTICS[Analytics Engine]
-      ANALYTICS --> REPORTING[PDF/PNG Reports]
-   end
-   CLI[CLI Tools] --> MODELS
-   CLI --> ANALYTICS
+The architecture is designed to scale from Streamlit to a full API + custom frontend:
+
 ```
+RELIABASE/
+├── src/reliabase/
+│   ├── services/        # ← Business logic (used by both Streamlit & API)
+│   ├── api/             # FastAPI endpoints (for future scaling)
+│   ├── analytics/       # MTBF, MTTR, Weibull calculations
+│   └── models.py        # SQLModel definitions
+├── streamlit_app/       # ← Current UI
+│   ├── Home.py          # Dashboard
+│   └── pages/           # Feature pages
+└── frontend/            # React UI (for future scaling)
+```
+
+**Scaling Path:**
+1. **Now**: Streamlit for quick iteration and user testing
+2. **Later**: FastAPI backend + React frontend for production scale
+3. **Services layer** is shared, making migration seamless
 
 ---
 
@@ -144,7 +128,7 @@ flowchart TD
 
 ### Reporting & Export
 - ✅ PDF reliability packet with KPI summary, plots, and event timeline
-- ✅ CSV export for all tables (via UI or CLI)
+- ✅ CSV export for all tables (via UI)
 - ✅ PNG chart exports (Weibull curves, Pareto, timeline)
 
 ---
@@ -167,20 +151,19 @@ Where β = shape parameter, η = scale parameter. Right-censored observations ha
 ```
 RELIABASE/
 ├── src/reliabase/           # Python package
-│   ├── api/                 # FastAPI routers
+│   ├── services/            # Business logic (shared by UI & API)
+│   ├── api/                 # FastAPI routers (for scaling)
 │   ├── analytics/           # MTBF, MTTR, Weibull calculations
 │   ├── io/                  # CSV import/export
 │   ├── models.py            # SQLModel definitions
 │   ├── config.py            # Database configuration
 │   ├── seed_demo.py         # Demo data generator
 │   └── make_report.py       # PDF report generator
-├── frontend/                # React application
-│   ├── src/
-│   │   ├── api/             # API client & types
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Route pages
-│   │   └── layouts/         # Shell layout
-│   └── package.json
+├── streamlit_app/           # Streamlit UI (current)
+│   ├── Home.py              # Dashboard entry point
+│   └── pages/               # Feature pages
+├── frontend/                # React application (for scaling)
+│   └── src/                 # React components
 ├── tests/                   # Pytest test suite
 ├── examples/                # Generated reports & exports
 ├── requirements.txt         # Python dependencies
@@ -204,7 +187,13 @@ pytest tests/test_analytics.py
 
 ---
 
-## 🔌 API Endpoints
+## 🔌 API Mode (For Scaling)
+
+When ready to scale beyond Streamlit, use the FastAPI backend:
+
+```bash
+uvicorn reliabase.api.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
 | Endpoint | Methods | Description |
 |----------|---------|-------------|
@@ -230,33 +219,22 @@ Full API docs available at **http://localhost:8000/docs** when backend is runnin
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RELIABASE_DB` | `./reliabase.sqlite` | SQLite database file path |
-| `RELIABASE_DATABASE_URL` | `sqlite:///./reliabase.sqlite` | Full database URL |
-| `RELIABASE_CORS_ORIGINS` | `http://localhost:5173,...` | Allowed CORS origins (comma-separated) |
+| `RELIABASE_DATABASE_URL` | `sqlite:///./reliabase.sqlite` | Full database URL (use PostgreSQL for production) |
 | `RELIABASE_ECHO_SQL` | `false` | Log SQL queries |
-| `VITE_API_URL` | `http://localhost:8000` | Backend URL for frontend |
 
 ---
 
-## 📖 Usage Examples
+## 🚀 Deployment
 
-### Export Tables to CSV (Python)
-```python
-from pathlib import Path
-from sqlmodel import Session
-from reliabase.config import get_engine
-from reliabase.io import csv_io
-from reliabase.models import Asset
+### Streamlit Cloud (Quick Demo)
+1. Push to GitHub
+2. Connect to [Streamlit Cloud](https://streamlit.io/cloud)
+3. Set entry point to `streamlit_app/Home.py`
 
-with Session(get_engine()) as session:
-    csv_io.export_table(session, Asset, Path("./exports/assets.csv"))
-```
-
-### Seed Demo Data via API
-```bash
-curl -X POST http://localhost:8000/demo/seed \
-  -H "Content-Type: application/json" \
-  -d '{"reset": true}'
-```
+### Production (Docker + PostgreSQL)
+1. Set `RELIABASE_DATABASE_URL` to PostgreSQL connection string
+2. Use the FastAPI backend + custom frontend
+3. Services layer works identically with any database
 
 ---
 
@@ -278,6 +256,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ## 🙏 Acknowledgments
 
-- Built with [FastAPI](https://fastapi.tiangolo.com/), [SQLModel](https://sqlmodel.tiangolo.com/), and [React](https://react.dev/)
+- Built with [Streamlit](https://streamlit.io/), [FastAPI](https://fastapi.tiangolo.com/), and [SQLModel](https://sqlmodel.tiangolo.com/)
 - Weibull analysis powered by [SciPy](https://scipy.org/)
-- UI styled with [TailwindCSS](https://tailwindcss.com/)
+- Designed for scalability from prototype to production
