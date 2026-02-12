@@ -1,28 +1,15 @@
 """Events management page."""
 import streamlit as st
-import sys
-from pathlib import Path
 from datetime import datetime
 
 st.set_page_config(page_title="Events - RELIABASE", page_icon="📅", layout="wide")
 
-src_path = Path(__file__).parent.parent.parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
+from _common import get_session  # noqa: E402
 
-from sqlmodel import Session
-from reliabase.config import init_db, get_engine
-from reliabase.services import AssetService, EventService
-from reliabase.schemas import EventCreate, EventUpdate
-
-init_db()
+from reliabase.services import AssetService, EventService  # noqa: E402
+from reliabase.schemas import EventCreate, EventUpdate  # noqa: E402
 
 EVENT_TYPES = ["failure", "maintenance", "inspection"]
-
-
-def get_session():
-    engine = get_engine()
-    return Session(engine)
 
 
 def main():
@@ -167,5 +154,4 @@ def main():
                         st.rerun()
 
 
-if __name__ == "__main__":
-    main()
+main()

@@ -41,17 +41,17 @@ pytestmark = pytest.mark.filterwarnings(
 
 @pytest.fixture()
 def temp_db() -> Generator[str, None, None]:
+    os.environ["RELIABASE_TESTING"] = "true"
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = os.path.join(tmpdir, "test.sqlite")
         os.environ["RELIABASE_DATABASE_URL"] = f"sqlite:///{db_path}"
-        # Reload config to pick up env
-        import importlib
-
-        importlib.reload(config)
+        # Clear cached engine so tests get a fresh one for this temp DB
+        config._engine_cache.clear()
         engine = config.get_engine()
         SQLModel.metadata.create_all(engine)
         yield db_path
         engine.dispose()
+        config._engine_cache.clear()
 
 
 @pytest.fixture()
@@ -59,7 +59,6 @@ def session(temp_db) -> Generator[Session, None, None]:
     engine = config.get_engine()
     with Session(engine) as session:
         yield session
-    engine.dispose()
 
 
 @pytest.fixture()

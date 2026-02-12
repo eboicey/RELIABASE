@@ -4,7 +4,6 @@ This is the home page and entry point for the Streamlit application.
 Run with: streamlit run streamlit_app/Home.py
 """
 import streamlit as st
-from sqlmodel import Session
 
 # Configure page - MUST be first Streamlit command
 st.set_page_config(
@@ -14,26 +13,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Import after page config
-import sys
-from pathlib import Path
+from _common import get_session  # noqa: E402
 
-# Add src to path for imports
-src_path = Path(__file__).parent.parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
-
-from reliabase.config import init_db, get_engine
-from reliabase.services import AssetService, EventService, ExposureService, DemoService
-
-# Initialize database
-init_db()
-
-
-def get_session():
-    """Get a database session."""
-    engine = get_engine()
-    return Session(engine)
+from reliabase.services import AssetService, EventService, ExposureService, DemoService  # noqa: E402
 
 
 def main():
@@ -61,12 +43,10 @@ def main():
         asset_svc = AssetService(session)
         event_svc = EventService(session)
         exposure_svc = ExposureService(session)
-        demo_svc = DemoService(session)
         
         assets = asset_svc.list(limit=500)
         events = event_svc.list(limit=500)
         exposures = exposure_svc.list(limit=500)
-        totals = demo_svc.get_totals()
     
     # KPI Cards
     st.subheader("Key Metrics")
@@ -148,5 +128,4 @@ def main():
         """)
 
 
-if __name__ == "__main__":
-    main()
+main()

@@ -1,29 +1,15 @@
 """Operations page - Demo seeding, exports, and admin tasks."""
 import streamlit as st
-import sys
-from pathlib import Path
 import pandas as pd
-from io import StringIO
 
 st.set_page_config(page_title="Operations - RELIABASE", page_icon="🛰", layout="wide")
 
-src_path = Path(__file__).parent.parent.parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
+from _common import get_session  # noqa: E402
 
-from sqlmodel import Session
-from reliabase.config import init_db, get_engine
-from reliabase.services import (
-    AssetService, EventService, ExposureService, 
-    FailureModeService, EventDetailService, PartService, DemoService
+from reliabase.services import (  # noqa: E402
+    AssetService, EventService, ExposureService,
+    FailureModeService, EventDetailService, PartService, DemoService,
 )
-
-init_db()
-
-
-def get_session():
-    engine = get_engine()
-    return Session(engine)
 
 
 def convert_to_csv(data, columns):
@@ -220,5 +206,4 @@ def main():
     """)
 
 
-if __name__ == "__main__":
-    main()
+main()
