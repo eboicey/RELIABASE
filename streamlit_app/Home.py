@@ -1,172 +1,268 @@
-"""RELIABASE Streamlit Application - Main Entry Point.
-
-This is the home page and entry point for the Streamlit application.
-Run with: streamlit run streamlit_app/Home.py
-"""
+"""Analytics-first Home — instant fleet situational awareness."""
 import streamlit as st
 
-# Configure page - MUST be first Streamlit command
-st.set_page_config(
-    page_title="RELIABASE",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+st.set_page_config(page_title="RELIABASE", page_icon="📊", layout="wide")
 
 from _common import get_session  # noqa: E402
 
-from reliabase.services import AssetService, EventService, ExposureService, DemoService  # noqa: E402
-from reliabase.analytics import metrics, manufacturing, business  # noqa: E402
+from reliabase.services import (  # noqa: E402
+    AssetService, EventService, ExposureService,
+    FailureModeService, EventDetailService, DemoService,
+)
+from reliabase.analytics import (  # noqa: E402
+    metrics, reliability_extended, business, manufacturing,
+)
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+_GRADE_ICON = {"A": "🟢", "B": "🔵", "C": "🟡", "D": "🟠", "F": "🔴"}
+
+
+def _letter_grade(score: float) -> str:
+    """Map a 0-100 score to a letter grade (mirrors business._grade)."""
+    if score >= 85:
+        return "A"
+    if score >= 70:
+        return "B"
+    if score >= 55:
+        return "C"
+    if score >= 40:
+        return "D"
+    return "F"
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 def main():
-    # Sidebar branding
+    # --- Sidebar branding ---------------------------------------------------
     with st.sidebar:
-        st.markdown("""
-        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0;">
-            <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(99, 102, 241, 0.2); 
-                        border: 1px solid rgba(99, 102, 241, 0.4); display: flex; align-items: center; 
-                        justify-content: center; color: #818cf8; font-weight: 600; font-size: 18px;">R</div>
-            <div>
-                <div style="font-size: 18px; font-weight: 600;">RELIABASE</div>
-                <div style="font-size: 12px; color: #94a3b8;">Reliability Analytics</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("### RELIABASE")
+        st.caption("Open-source reliability analytics\nfor maintenance teams.")
         st.divider()
-    
-    # Main content
-    st.title("📊 RELIABASE Dashboard")
-    st.markdown("*Reliability engineering tracking and analytics platform*")
-    
-    # Load data
+
+    # --- Load all data ------------------------------------------------------
     with get_session() as session:
-        asset_svc = AssetService(session)
-        event_svc = EventService(session)
-        exposure_svc = ExposureService(session)
-        
-        assets = asset_svc.list(limit=500)
-        events = event_svc.list(limit=500)
-        exposures = exposure_svc.list(limit=500)
-    
-    # KPI Cards
-    st.subheader("Key Metrics")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    total_hours = sum(e.hours or 0 for e in exposures)
-    failure_count = len([e for e in events if e.event_type == "failure"])
-    
-    with col1:
-        st.metric("Assets", len(assets), help="Total tracked assets")
-    with col2:
-        st.metric("Events", len(events), help="All event types")
-    with col3:
-        st.metric("Failures", failure_count, help="Events with type = failure")
-    with col4:
-        st.metric("Exposure Hours", f"{total_hours:.1f}", help="Sum of exposure logs")
-    
-    st.divider()
-    
-    # Fleet Health Summary
-    st.subheader("Fleet Health Summary")
-    
-    if assets and events:
-        health_data = []
-        for asset in assets:
-            a_events = [e for e in events if e.asset_id == asset.id]
-            a_exposures = [e for e in exposures if e.asset_id == asset.id]
-            a_kpi = metrics.aggregate_kpis(a_exposures, a_events)
-            a_avail = a_kpi["availability"]
-            a_mtbf = a_kpi["mtbf_hours"]
+        assets = AssetService(session).list(limit=500)
+        events = EventService(session).list(limit=500)
+        exposures = ExposureService(session).list(limit=500)
+        failure_modes = FailureModeService(session).list(limit=500)
+        details = EventDetailService(session).list(limit=500)
 
-            dt_split = manufacturing.compute_downtime_split(a_events)
-            perf = manufacturing.compute_performance_rate(a_exposures)
-            oee_result = manufacturing.compute_oee(a_avail, perf.performance_rate)
-
-            hi = business.compute_health_index(
-                availability=a_avail,
-                mtbf_hours=a_mtbf,
-                unplanned_ratio=dt_split.unplanned_ratio,
-                oee=oee_result.oee,
-            )
-
-            health_data.append({
-                "Asset": f"#{asset.id} - {asset.name}",
-                "Health Score": hi.score,
-                "Grade": hi.grade,
-                "Availability": f"{a_avail * 100:.1f}%",
-                "MTBF (h)": f"{a_mtbf:.1f}",
-                "OEE": f"{oee_result.oee * 100:.1f}%",
-            })
-
-        st.dataframe(health_data, use_container_width=True, hide_index=True)
-    else:
-        st.info("Seed demo data from Operations to see fleet health.")
-    
-    st.divider()
-    
-    # Recent Events
-    st.subheader("Recent Events")
-    
-    if events:
-        # Sort by timestamp descending and show top 10
-        sorted_events = sorted(events, key=lambda e: e.timestamp, reverse=True)[:10]
-        
-        event_data = []
-        for evt in sorted_events:
-            event_data.append({
-                "Timestamp": evt.timestamp.strftime("%Y-%m-%d %H:%M"),
-                "Asset ID": f"#{evt.asset_id}",
-                "Type": evt.event_type.capitalize(),
-                "Downtime (min)": evt.downtime_minutes or 0,
-                "Description": evt.description or "—",
-            })
-        
-        st.dataframe(event_data, use_container_width=True, hide_index=True)
-    else:
-        st.info("No events yet. Use the sidebar to navigate to **Operations** and seed demo data.")
-        
-        # Seed button for empty state
+    # --- Empty state / onboarding -------------------------------------------
+    if not assets:
+        st.title("Welcome to RELIABASE")
+        st.markdown(
+            "Your reliability analytics platform is ready. "
+            "Seed demo data to explore, or start adding your own assets."
+        )
+        st.markdown(
+            """
+            **Getting Started**
+            1. Click **Seed Demo Data** below to load sample equipment
+            2. Visit **Fleet Overview** for fleet-wide analytics
+            3. Dive into **Asset Deep Dive** for individual analysis
+            4. Or add your own data via the Configuration pages
+            """
+        )
         if st.button("🌱 Seed Demo Data", type="primary"):
             with get_session() as session:
-                demo_svc = DemoService(session)
-                result = demo_svc.seed(reset=True)
-                st.success(f"Seeded {result['created']['assets']} assets, {result['created']['events']} events, "
-                          f"{result['created']['exposures']} exposures!")
-                st.rerun()
-    
+                DemoService(session).seed(reset=True)
+            st.rerun()
+        return
+
+    # --- Compute fleet metrics -----------------------------------------------
+    failure_events = [e for e in events if e.event_type == "failure"]
+    fleet_kpi = metrics.aggregate_kpis(exposures, events)
+    failure_count = fleet_kpi["failure_count"]
+
+    # Per-asset health index
+    asset_health: dict[int, dict] = {}
+    ba_data: list[dict] = []
+
+    for asset in assets:
+        a_events = [e for e in events if e.asset_id == asset.id]
+        a_exposures = [e for e in exposures if e.asset_id == asset.id]
+        a_kpi = metrics.aggregate_kpis(a_exposures, a_events)
+        a_failures = [e for e in a_events if e.event_type == "failure"]
+        dt_hrs = sum((e.downtime_minutes or 0) for e in a_failures) / 60.0
+
+        dt_split = manufacturing.compute_downtime_split(a_events)
+        perf = manufacturing.compute_performance_rate(a_exposures)
+        oee_result = manufacturing.compute_oee(a_kpi["availability"], perf.performance_rate)
+
+        hi = business.compute_health_index(
+            availability=a_kpi["availability"],
+            mtbf_hours=a_kpi["mtbf_hours"],
+            unplanned_ratio=dt_split.unplanned_ratio,
+            oee=oee_result.oee,
+        )
+        asset_health[asset.id] = {
+            "name": asset.name,
+            "grade": hi.grade,
+            "score": hi.score,
+            "failures": len(a_failures),
+            "downtime_hours": dt_hrs,
+            "availability": a_kpi["availability"],
+            "mtbf": a_kpi["mtbf_hours"],
+        }
+        ba_data.append({
+            "asset_id": asset.id,
+            "asset_name": asset.name,
+            "failure_count": len(a_failures),
+            "total_downtime_hours": dt_hrs,
+            "availability": a_kpi["availability"],
+        })
+
+    # Fleet average health
+    scores = [v["score"] for v in asset_health.values()]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    avg_grade = _letter_grade(avg_score)
+
+    # ========================================================================
+    # Fleet Health Banner
+    # ========================================================================
+    icon = _GRADE_ICON.get(avg_grade, "⚪")
+    st.markdown(f"## {icon} Fleet Health: Grade {avg_grade} — {avg_score:.0f} / 100")
+    st.caption(
+        "Composite score based on availability, MTBF, downtime quality, "
+        "wear-out margin, OEE, and repair trend across all assets."
+    )
+
+    # ========================================================================
+    # Critical KPIs
+    # ========================================================================
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric(
+        "Total Failures", failure_count,
+        help="Count of all failure-type events across the fleet. "
+             "A primary indicator of overall fleet reliability.",
+    )
+    c2.metric(
+        "Exposure Hours", f"{fleet_kpi['total_exposure_hours']:,.0f}",
+        help="Sum of all logged operating hours across every asset. "
+             "More hours improve statistical confidence in reliability estimates.",
+    )
+    mtbf = fleet_kpi["mtbf_hours"]
+    c3.metric(
+        "Fleet MTBF", f"{mtbf:,.0f} h" if mtbf < 1e6 else "N/A",
+        help="Mean Time Between Failures = total operating hours / failure count. "
+             "Higher is better. A core reliability KPI.",
+    )
+    c4.metric(
+        "Assets Tracked", len(assets),
+        help="Total number of assets registered in the system.",
+    )
+
     st.divider()
-    
-    # What's Next section
-    st.subheader("What's Next?")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        **Analytics**
-        
-        View MTBF, MTTR, availability, Weibull analysis, OEE,
-        health index, RPN, and business impact metrics.
-        """)
-    
-    with col2:
-        st.markdown("""
-        **Operations**
-        
-        Re-seed data, export CSVs, view spare parts forecast,
-        and monitor fleet bad actors.
-        """)
-    
-    with col3:
-        st.markdown("""
-        **Reports**
-        
-        Generate Weibull analysis and PDF reports via CLI:
-        ```bash
-        python -m reliabase.make_report --asset-id 1
-        ```
-        """)
+
+    # ========================================================================
+    # Worst Performers + Dominant Failure Pattern
+    # ========================================================================
+    left, right = st.columns(2)
+
+    with left:
+        st.subheader("Worst Performers")
+        ranked = reliability_extended.rank_bad_actors(ba_data, top_n=3)
+        if ranked.entries:
+            for i, entry in enumerate(ranked.entries):
+                # Find grade by asset_id
+                grade = "?"
+                for aid, ah in asset_health.items():
+                    if ah["name"] == entry.asset_name:
+                        grade = ah["grade"]
+                        break
+                g_icon = _GRADE_ICON.get(grade, "⚪")
+                st.markdown(
+                    f"**{i + 1}. {entry.asset_name}** {g_icon} Grade {grade}  \n"
+                    f"&nbsp;&nbsp;&nbsp;&nbsp;"
+                    f"{entry.failure_count} failures · "
+                    f"{entry.total_downtime_hours:.1f}h downtime · "
+                    f"{entry.availability * 100:.0f}% availability"
+                )
+        else:
+            st.info("No failure data to rank.")
+
+    with right:
+        st.subheader("Dominant Failure Pattern")
+        if details and failure_modes:
+            ev_ids = {e.id for e in failure_events}
+            mode_counts: dict[int, int] = {}
+            for d in details:
+                if d.event_id in ev_ids:
+                    mode_counts[d.failure_mode_id] = mode_counts.get(d.failure_mode_id, 0) + 1
+            if mode_counts:
+                name_map = {m.id: m.name for m in failure_modes}
+                cat_map = {m.id: m.category for m in failure_modes}
+                top_id = max(mode_counts, key=mode_counts.get)  # type: ignore[arg-type]
+                top_count = mode_counts[top_id]
+                pct = top_count / sum(mode_counts.values()) * 100
+                st.metric(
+                    name_map.get(top_id, "Unknown"),
+                    f"{top_count} occurrences ({pct:.0f}%)",
+                    help="The single most common failure mode across the fleet. "
+                         "Focus corrective action here for maximum impact.",
+                )
+                st.caption(f"Category: {cat_map.get(top_id, 'N/A')}")
+            else:
+                st.info("Link failure details to events for pattern analysis.")
+        else:
+            st.info("Add failure modes and event details to see patterns.")
+
+    st.divider()
+
+    # ========================================================================
+    # Asset Health Map
+    # ========================================================================
+    st.subheader("Asset Health Map")
+    st.caption(
+        "Health grade for every asset. "
+        "Visit **Fleet Overview** for the full comparison table, "
+        "or **Asset Deep Dive** for individual analysis."
+    )
+
+    n_cols = min(len(assets), 5)
+    cols = st.columns(n_cols)
+    sorted_assets = sorted(asset_health.items(), key=lambda x: x[1]["score"])
+    for i, (aid, ah) in enumerate(sorted_assets):
+        with cols[i % n_cols]:
+            g_icon = _GRADE_ICON.get(ah["grade"], "⚪")
+            st.metric(
+                f"{g_icon} {ah['name']}",
+                f"Grade {ah['grade']}",
+                f"{ah['score']:.0f}/100",
+                help=(
+                    f"Health index for {ah['name']}. "
+                    f"Availability: {ah['availability'] * 100:.0f}% | "
+                    f"MTBF: {ah['mtbf']:.0f}h | "
+                    f"Failures: {ah['failures']} | "
+                    f"Downtime: {ah['downtime_hours']:.1f}h"
+                ),
+            )
+
+    st.divider()
+
+    # ========================================================================
+    # Recent Failures
+    # ========================================================================
+    st.subheader("Recent Failures")
+    if failure_events:
+        recent = sorted(failure_events, key=lambda e: e.timestamp, reverse=True)[:10]
+        names = {a.id: a.name for a in assets}
+        rows = [
+            {
+                "Timestamp": e.timestamp.strftime("%Y-%m-%d %H:%M"),
+                "Asset": names.get(e.asset_id, f"#{e.asset_id}"),
+                "Downtime (min)": e.downtime_minutes or 0,
+                "Description": e.description or "—",
+            }
+            for e in recent
+        ]
+        st.dataframe(rows, use_container_width=True, hide_index=True)
+    else:
+        st.info("No failure events recorded yet.")
 
 
 main()

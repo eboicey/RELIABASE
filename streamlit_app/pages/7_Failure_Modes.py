@@ -12,6 +12,13 @@ from reliabase.schemas import FailureModeCreate, FailureModeUpdate  # noqa: E402
 def main():
     st.title("⚠️ Failure Modes")
     st.markdown("Define failure modes to categorize and analyze patterns.")
+    with st.expander("ℹ️ What are Failure Modes?", expanded=False):
+        st.markdown(
+            "**Failure modes** describe HOW equipment fails — seal leak, bearing wear, "
+            "electrical short, corrosion, etc. Categorizing failure modes enables Pareto analysis "
+            "(which modes cause the most failures), RPN risk ranking, and targeted corrective actions. "
+            "Use consistent naming for accurate pattern recognition."
+        )
     
     # Add Failure Mode Form
     with st.expander("➕ Add New Failure Mode", expanded=False):

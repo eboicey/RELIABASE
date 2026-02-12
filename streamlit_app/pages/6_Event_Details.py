@@ -12,6 +12,13 @@ from reliabase.schemas import EventFailureDetailCreate, EventFailureDetailUpdate
 def main():
     st.title("🧩 Event Details")
     st.markdown("Link events to failure modes with root cause analysis.")
+    with st.expander("ℹ️ What are Event Details?", expanded=False):
+        st.markdown(
+            "**Event Details** link each event to a specific failure mode, enabling Pareto analysis, "
+            "RPN (Risk Priority Number) calculations, and root cause tracking. "
+            "Adding root cause and corrective action data improves failure pattern recognition "
+            "and supports FMEA (Failure Mode and Effects Analysis)."
+        )
     
     # Load data for dropdowns
     with get_session() as session:

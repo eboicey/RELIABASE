@@ -12,6 +12,13 @@ from reliabase.schemas import AssetCreate, AssetUpdate  # noqa: E402
 def main():
     st.title("🛠 Asset Management")
     st.markdown("Track and manage your equipment and assets.")
+    with st.expander("ℹ️ What are Assets?", expanded=False):
+        st.markdown(
+            "**Assets** are the physical equipment you want to track — pumps, compressors, "
+            "motors, conveyors, etc. Each asset gets its own reliability profile including "
+            "Weibull analysis, health index, and failure history. "
+            "Assets are the foundation of all analytics in RELIABASE."
+        )
     
     # Add Asset Form
     with st.expander("➕ Add New Asset", expanded=False):

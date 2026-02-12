@@ -31,6 +31,12 @@ def convert_to_csv(data, columns):
 def main():
     st.title("🛰 Operations")
     st.markdown("Database management, demo data, and exports.")
+    with st.expander("ℹ️ About Operations", expanded=False):
+        st.markdown(
+            "**Operations** provides administrative tools — seed demo data for testing, "
+            "export your data as CSV, view spare parts demand, and find CLI commands "
+            "for advanced usage like PDF report generation and API mode."
+        )
     
     # Demo Dataset Section
     st.subheader("Demo Dataset")
@@ -67,7 +73,10 @@ def main():
     cols = st.columns(5)
     for i, (key, val) in enumerate(totals.items()):
         with cols[i]:
-            st.metric(key.replace("_", " ").title(), val)
+            st.metric(
+                key.replace("_", " ").title(), val,
+                help=f"Total number of {key.replace('_', ' ')} records in the database.",
+            )
     
     st.divider()
     

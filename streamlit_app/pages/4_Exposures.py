@@ -13,6 +13,13 @@ from reliabase.schemas import ExposureLogCreate, ExposureLogUpdate  # noqa: E402
 def main():
     st.title("⏳ Exposure Logs")
     st.markdown("Track operating hours and cycles for your assets.")
+    with st.expander("ℹ️ What are Exposure Logs?", expanded=False):
+        st.markdown(
+            "**Exposure logs** record operating time (hours) and production cycles for each asset. "
+            "They are essential for computing MTBF, failure rates, and Weibull analysis — "
+            "without exposure data, reliability metrics cannot be calculated accurately. "
+            "Log every run period to build a complete operating history."
+        )
     
     # Load assets for dropdown
     with get_session() as session:

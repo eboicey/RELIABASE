@@ -13,6 +13,13 @@ from reliabase.schemas import PartCreate, PartUpdate, PartInstallCreate, PartIns
 def main():
     st.title("📦 Parts & Installations")
     st.markdown("Track parts and their installation history on assets.")
+    with st.expander("ℹ️ What are Parts?", expanded=False):
+        st.markdown(
+            "**Parts** represent replaceable components — seals, bearings, filters, belts, etc. "
+            "Tracking parts enables spare demand forecasting, installation history, "
+            "and component-level reliability analysis. "
+            "Link parts to assets via installations to see which components are on which equipment."
+        )
     
     # Tabs for Parts vs Installs
     tab1, tab2 = st.tabs(["Parts Catalog", "Part Installations"])

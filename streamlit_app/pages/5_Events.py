@@ -15,6 +15,13 @@ EVENT_TYPES = ["failure", "maintenance", "inspection"]
 def main():
     st.title("📅 Events")
     st.markdown("Log failures, maintenance, and inspections.")
+    with st.expander("ℹ️ What are Events?", expanded=False):
+        st.markdown(
+            "**Events** capture anything that happens to an asset — failures, maintenance actions, "
+            "and inspections. Failure events drive Weibull analysis and MTBF calculations. "
+            "Maintenance events help distinguish planned vs. unplanned downtime for OEE. "
+            "Include downtime duration for accurate availability metrics."
+        )
     
     # Load assets for dropdown
     with get_session() as session:
