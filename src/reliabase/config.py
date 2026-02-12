@@ -15,7 +15,23 @@ from sqlmodel import SQLModel, create_engine
 
 load_dotenv()
 
-DEFAULT_DB_PATH = Path(os.getenv("RELIABASE_DB", "./reliabase.sqlite")).resolve()
+
+def _default_db_path() -> Path:
+    """Return a suitable default database file path.
+
+    On Streamlit Cloud the repo checkout (``/mount/src/``) is **read-only**,
+    so we fall back to ``/tmp/reliabase.sqlite`` which is writable.
+    """
+    explicit = os.getenv("RELIABASE_DB")
+    if explicit:
+        return Path(explicit).resolve()
+    # Streamlit Cloud detection
+    if os.path.exists("/mount/src"):
+        return Path("/tmp/reliabase.sqlite")
+    return Path("./reliabase.sqlite").resolve()
+
+
+DEFAULT_DB_PATH = _default_db_path()
 
 # Module-level engine cache – avoids re-creating the engine on every call.
 _engine_cache: dict[str, Any] = {}
