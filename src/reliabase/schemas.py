@@ -153,3 +153,156 @@ class PartInstallRead(PartInstallBase):
 class PartInstallUpdate(SQLModel):
     install_time: Optional[datetime] = None
     remove_time: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Extended Analytics Schemas
+# ---------------------------------------------------------------------------
+
+class OEEOut(SQLModel):
+    """OEE breakdown returned by manufacturing analytics."""
+    availability: float
+    performance: float
+    quality: float
+    oee: float
+
+
+class PerformanceRateOut(SQLModel):
+    actual_throughput: float
+    design_throughput: float
+    performance_rate: float
+    total_cycles: float
+    total_operating_hours: float
+
+
+class DowntimeSplitOut(SQLModel):
+    planned_downtime_hours: float
+    unplanned_downtime_hours: float
+    total_downtime_hours: float
+    unplanned_ratio: float
+    planned_count: int
+    unplanned_count: int
+
+
+class MTBMOut(SQLModel):
+    mtbm_hours: float
+    maintenance_events: int
+    total_operating_hours: float
+
+
+class ManufacturingKPIsOut(SQLModel):
+    oee: OEEOut
+    performance: PerformanceRateOut
+    downtime_split: DowntimeSplitOut
+    mtbm: MTBMOut
+
+
+class FailureRateOut(SQLModel):
+    average_rate: float
+    instantaneous_rate: float
+    total_failures: int
+    total_hours: float
+
+
+class BLifeOut(SQLModel):
+    percentile: float
+    life_hours: float
+
+
+class ConditionalReliabilityOut(SQLModel):
+    current_age: float
+    mission_time: float
+    conditional_reliability: float
+
+
+class RepairEffectivenessOut(SQLModel):
+    trend_ratio: float
+    intervals_count: int
+    improving: bool
+
+
+class RPNEntryOut(SQLModel):
+    failure_mode: str
+    severity: int
+    occurrence: int
+    detection: int
+    rpn: int
+
+
+class RPNAnalysisOut(SQLModel):
+    entries: list[RPNEntryOut] = []
+    max_rpn: int = 0
+
+
+class BadActorEntryOut(SQLModel):
+    asset_id: int
+    asset_name: str
+    failure_count: int
+    total_downtime_hours: float
+    availability: float
+    composite_score: float
+
+
+class COUROut(SQLModel):
+    total_cost: float
+    lost_production_cost: float
+    repair_cost: float
+    unplanned_downtime_hours: float
+    failure_count: int
+    cost_per_failure: float
+
+
+class PMOptimizationOut(SQLModel):
+    weibull_shape: float
+    failure_pattern: str
+    recommended_pm_hours: float
+    current_pm_hours: Optional[float] = None
+    pm_ratio: Optional[float] = None
+    assessment: str
+
+
+class SparePartForecastOut(SQLModel):
+    part_name: str
+    expected_failures: float
+    lower_bound: float
+    upper_bound: float
+
+
+class SpareDemandOut(SQLModel):
+    horizon_hours: float
+    forecasts: list[SparePartForecastOut] = []
+    total_expected_failures: float = 0.0
+
+
+class AssetHealthIndexOut(SQLModel):
+    score: float
+    grade: str
+    components: dict = {}
+
+
+class ExtendedAssetAnalytics(SQLModel):
+    """Full unified analytics for one asset — reliability + manufacturing + business."""
+    asset_id: int
+    asset_name: str
+
+    # Reliability core
+    mtbf_hours: float = 0.0
+    mttr_hours: float = 0.0
+    availability: float = 0.0
+    failure_count: int = 0
+    total_exposure_hours: float = 0.0
+
+    # Extended reliability
+    failure_rate: Optional[FailureRateOut] = None
+    b10_life: Optional[BLifeOut] = None
+    mttf_hours: Optional[float] = None
+    repair_effectiveness: Optional[RepairEffectivenessOut] = None
+    rpn: Optional[RPNAnalysisOut] = None
+
+    # Manufacturing
+    manufacturing: Optional[ManufacturingKPIsOut] = None
+
+    # Business
+    cour: Optional[COUROut] = None
+    pm_optimization: Optional[PMOptimizationOut] = None
+    health_index: Optional[AssetHealthIndexOut] = None

@@ -12,8 +12,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import select
 
-from reliabase import models
-from reliabase.analytics import metrics, reporting, weibull
+from reliabase import models, schemas
+from reliabase.analytics import metrics, reporting, weibull, manufacturing, business, reliability_extended
 from reliabase.api.deps import SessionDep
 
 
@@ -319,4 +319,346 @@ def get_fleet_analytics(
             # Skip assets with errors
             continue
     
+    return results
+
+
+# =========================================================================
+# Extended Analytics Endpoints
+# =========================================================================
+
+def _build_failure_mode_details(session, details, events) -> list[dict]:
+    """Build failure-mode dicts with avg downtime for RPN computation."""
+    mode_data: dict[str, dict] = {}  # name -> {count, total_dt, category}
+    event_map = {e.id: e for e in events}
+    for d in details:
+        mode = session.get(models.FailureMode, d.failure_mode_id)
+        if not mode:
+            continue
+        if mode.name not in mode_data:
+            mode_data[mode.name] = {"name": mode.name, "count": 0, "total_dt": 0.0, "category": mode.category}
+        mode_data[mode.name]["count"] += 1
+        evt = event_map.get(d.event_id)
+        mode_data[mode.name]["total_dt"] += (evt.downtime_minutes or 0.0) if evt else 0.0
+    result = []
+    for md in mode_data.values():
+        md["avg_downtime_minutes"] = md["total_dt"] / md["count"] if md["count"] > 0 else 0.0
+        result.append(md)
+    return result
+
+
+@router.get("/asset/{asset_id}/extended", response_model=schemas.ExtendedAssetAnalytics)
+def get_extended_asset_analytics(
+    asset_id: int,
+    session: SessionDep,
+    n_bootstrap: int = 200,
+    hourly_production_value: float = 500.0,
+    avg_repair_cost: float = 1500.0,
+    design_cycles_per_hour: Optional[float] = None,
+    quality_rate: float = 1.0,
+):
+    """Unified analytics: reliability + manufacturing + business for one asset.
+
+    Returns everything needed to evaluate an asset's reliability posture,
+    manufacturing effectiveness, and financial impact in a single call.
+    """
+    asset, exposures, events, details = _load_asset_data(session, asset_id)
+
+    # --- Core reliability KPIs ---
+    kpi_data = metrics.aggregate_kpis(exposures, events)
+    intervals = kpi_data.get("intervals_hours", [])
+    censored = kpi_data.get("censored_flags", [])
+    avail = kpi_data["availability"]
+    mtbf = kpi_data["mtbf_hours"]
+    mttr = kpi_data["mttr_hours"]
+    failure_count = kpi_data["failure_count"]
+    total_hours = kpi_data["total_exposure_hours"]
+
+    # --- Weibull fit (needed by several downstream metrics) ---
+    weibull_fit = None
+    if intervals and any(not c for c in censored):
+        try:
+            weibull_fit = weibull.fit_weibull_mle_censored(intervals, censored)
+        except Exception:
+            pass
+
+    # --- Extended reliability ---
+    fr_out = None
+    b10_out = None
+    mttf_val = None
+    repair_eff_out = None
+    rpn_out = None
+
+    fr = reliability_extended.compute_failure_rate(
+        failure_count, total_hours,
+        shape=weibull_fit.shape if weibull_fit else None,
+        scale=weibull_fit.scale if weibull_fit else None,
+        current_age_hours=total_hours,
+    )
+    fr_out = schemas.FailureRateOut(
+        average_rate=fr.average_rate,
+        instantaneous_rate=fr.instantaneous_rate,
+        total_failures=fr.total_failures,
+        total_hours=fr.total_hours,
+    )
+
+    if weibull_fit:
+        b10 = reliability_extended.compute_b_life(weibull_fit.shape, weibull_fit.scale, 10.0)
+        b10_out = schemas.BLifeOut(percentile=b10.percentile, life_hours=b10.life_hours)
+        mttf_val = reliability_extended.compute_mttf(weibull_fit.shape, weibull_fit.scale)
+
+    if intervals:
+        re = reliability_extended.compute_repair_effectiveness(intervals)
+        repair_eff_out = schemas.RepairEffectivenessOut(
+            trend_ratio=re.trend_ratio, intervals_count=re.intervals_count, improving=re.improving,
+        )
+
+    # RPN
+    fm_details = _build_failure_mode_details(session, details, events)
+    total_events = len(events)
+    if fm_details and total_events > 0:
+        rpn = reliability_extended.compute_rpn(fm_details, total_events)
+        rpn_out = schemas.RPNAnalysisOut(
+            entries=[
+                schemas.RPNEntryOut(
+                    failure_mode=e.failure_mode, severity=e.severity,
+                    occurrence=e.occurrence, detection=e.detection, rpn=e.rpn,
+                )
+                for e in rpn.entries
+            ],
+            max_rpn=rpn.max_rpn,
+        )
+
+    # --- Manufacturing ---
+    mfg = manufacturing.aggregate_manufacturing_kpis(
+        exposures, events, avail,
+        design_cycles_per_hour=design_cycles_per_hour,
+        quality_rate=quality_rate,
+    )
+    mfg_out = schemas.ManufacturingKPIsOut(
+        oee=schemas.OEEOut(
+            availability=mfg.oee.availability, performance=mfg.oee.performance,
+            quality=mfg.oee.quality, oee=mfg.oee.oee,
+        ),
+        performance=schemas.PerformanceRateOut(
+            actual_throughput=mfg.performance.actual_throughput,
+            design_throughput=mfg.performance.design_throughput,
+            performance_rate=mfg.performance.performance_rate,
+            total_cycles=mfg.performance.total_cycles,
+            total_operating_hours=mfg.performance.total_operating_hours,
+        ),
+        downtime_split=schemas.DowntimeSplitOut(
+            planned_downtime_hours=mfg.downtime_split.planned_downtime_hours,
+            unplanned_downtime_hours=mfg.downtime_split.unplanned_downtime_hours,
+            total_downtime_hours=mfg.downtime_split.total_downtime_hours,
+            unplanned_ratio=mfg.downtime_split.unplanned_ratio,
+            planned_count=mfg.downtime_split.planned_count,
+            unplanned_count=mfg.downtime_split.unplanned_count,
+        ),
+        mtbm=schemas.MTBMOut(
+            mtbm_hours=mfg.mtbm.mtbm_hours,
+            maintenance_events=mfg.mtbm.maintenance_events,
+            total_operating_hours=mfg.mtbm.total_operating_hours,
+        ),
+    )
+
+    # --- Business impact ---
+    cour = business.compute_cour(
+        mfg.downtime_split.unplanned_downtime_hours, failure_count,
+        hourly_production_value=hourly_production_value,
+        avg_repair_cost=avg_repair_cost,
+    )
+    cour_out = schemas.COUROut(
+        total_cost=cour.total_cost, lost_production_cost=cour.lost_production_cost,
+        repair_cost=cour.repair_cost, unplanned_downtime_hours=cour.unplanned_downtime_hours,
+        failure_count=cour.failure_count, cost_per_failure=cour.cost_per_failure,
+    )
+
+    pm_out = None
+    if weibull_fit:
+        pm = business.compute_pm_optimization(weibull_fit.shape, weibull_fit.scale)
+        pm_out = schemas.PMOptimizationOut(
+            weibull_shape=pm.weibull_shape, failure_pattern=pm.failure_pattern,
+            recommended_pm_hours=pm.recommended_pm_hours,
+            current_pm_hours=pm.current_pm_hours,
+            pm_ratio=pm.pm_ratio, assessment=pm.assessment,
+        )
+
+    # Health index
+    hi = business.compute_health_index(
+        availability=avail, mtbf_hours=mtbf,
+        unplanned_ratio=mfg.downtime_split.unplanned_ratio,
+        weibull_shape=weibull_fit.shape if weibull_fit else None,
+        oee=mfg.oee.oee,
+        repair_trend_ratio=repair_eff_out.trend_ratio if repair_eff_out else 1.0,
+    )
+    hi_out = schemas.AssetHealthIndexOut(score=hi.score, grade=hi.grade, components=hi.components)
+
+    return schemas.ExtendedAssetAnalytics(
+        asset_id=asset.id,
+        asset_name=asset.name,
+        mtbf_hours=mtbf,
+        mttr_hours=mttr,
+        availability=avail,
+        failure_count=failure_count,
+        total_exposure_hours=total_hours,
+        failure_rate=fr_out,
+        b10_life=b10_out,
+        mttf_hours=mttf_val,
+        repair_effectiveness=repair_eff_out,
+        rpn=rpn_out,
+        manufacturing=mfg_out,
+        cour=cour_out,
+        pm_optimization=pm_out,
+        health_index=hi_out,
+    )
+
+
+@router.get("/fleet/bad-actors", response_model=list[schemas.BadActorEntryOut])
+def get_bad_actors(
+    session: SessionDep,
+    top_n: int = 10,
+):
+    """Rank worst-performing assets across the fleet by composite bad-actor score."""
+    assets = session.exec(select(models.Asset)).all()
+    asset_data = []
+    for asset in assets:
+        exposures = session.exec(
+            select(models.ExposureLog).where(models.ExposureLog.asset_id == asset.id)
+        ).all()
+        events = session.exec(
+            select(models.Event).where(models.Event.asset_id == asset.id)
+        ).all()
+        kpi = metrics.aggregate_kpis(exposures, events)
+        failure_events = [e for e in events if e.event_type.lower() == "failure"]
+        total_dt_hrs = sum((e.downtime_minutes or 0) for e in failure_events) / 60.0
+        asset_data.append({
+            "asset_id": asset.id,
+            "asset_name": asset.name,
+            "failure_count": len(failure_events),
+            "total_downtime_hours": total_dt_hrs,
+            "availability": kpi["availability"],
+        })
+
+    ranked = reliability_extended.rank_bad_actors(asset_data, top_n=top_n)
+    return [
+        schemas.BadActorEntryOut(
+            asset_id=e.asset_id, asset_name=e.asset_name,
+            failure_count=e.failure_count, total_downtime_hours=e.total_downtime_hours,
+            availability=e.availability, composite_score=e.composite_score,
+        )
+        for e in ranked.entries
+    ]
+
+
+@router.get("/asset/{asset_id}/conditional-reliability", response_model=schemas.ConditionalReliabilityOut)
+def get_conditional_reliability(
+    asset_id: int,
+    session: SessionDep,
+    current_age_hours: float = 0.0,
+    mission_time_hours: float = 100.0,
+):
+    """Compute conditional reliability: P(survive additional mission_time | already survived current_age).
+
+    Requires Weibull parameters from sufficient failure data.
+    """
+    asset, exposures, events, _ = _load_asset_data(session, asset_id)
+    kpi_data = metrics.aggregate_kpis(exposures, events)
+    intervals = kpi_data.get("intervals_hours", [])
+    censored = kpi_data.get("censored_flags", [])
+
+    if not intervals or not any(not c for c in censored):
+        raise HTTPException(status_code=422, detail="Insufficient failure data for Weibull fit")
+
+    weibull_fit = weibull.fit_weibull_mle_censored(intervals, censored)
+
+    # Default current_age to total operating hours if not specified
+    if current_age_hours <= 0:
+        current_age_hours = sum(e.hours for e in exposures if e.hours and e.hours > 0)
+
+    cr = reliability_extended.compute_conditional_reliability(
+        weibull_fit.shape, weibull_fit.scale, current_age_hours, mission_time_hours,
+    )
+    return schemas.ConditionalReliabilityOut(
+        current_age=cr.current_age,
+        mission_time=cr.mission_time,
+        conditional_reliability=cr.conditional_reliability,
+    )
+
+
+@router.get("/fleet/spare-demand", response_model=schemas.SpareDemandOut)
+def get_spare_demand_forecast(
+    session: SessionDep,
+    horizon_hours: float = 8760.0,
+):
+    """Forecast spare-part demand across the fleet for a planning horizon.
+
+    Uses historical failure rates per part to project Poisson-based demand.
+    """
+    # Aggregate part-level failure rates from EventFailureDetail.part_replaced
+    details = session.exec(select(models.EventFailureDetail)).all()
+    events = session.exec(select(models.Event)).all()
+    exposures = session.exec(select(models.ExposureLog)).all()
+
+    total_hours = sum(e.hours for e in exposures if e.hours and e.hours > 0)
+    if total_hours <= 0:
+        return schemas.SpareDemandOut(horizon_hours=horizon_hours)
+
+    # Count replacements per part name
+    part_counts: dict[str, int] = {}
+    for d in details:
+        part_name = d.part_replaced or "Unknown"
+        part_counts[part_name] = part_counts.get(part_name, 0) + 1
+
+    part_data = [
+        {"part_name": name, "failure_rate_per_hour": count / total_hours}
+        for name, count in part_counts.items()
+        if name != "Unknown"
+    ]
+
+    if not part_data:
+        return schemas.SpareDemandOut(horizon_hours=horizon_hours)
+
+    result = business.forecast_spare_demand(part_data, horizon_hours)
+    return schemas.SpareDemandOut(
+        horizon_hours=result.horizon_hours,
+        forecasts=[
+            schemas.SparePartForecastOut(
+                part_name=f.part_name, expected_failures=f.expected_failures,
+                lower_bound=f.lower_bound, upper_bound=f.upper_bound,
+            )
+            for f in result.forecasts
+        ],
+        total_expected_failures=result.total_expected_failures,
+    )
+
+
+@router.get("/fleet/health-summary", response_model=list[schemas.AssetHealthIndexOut])
+def get_fleet_health_summary(
+    session: SessionDep,
+    limit: int = 50,
+):
+    """Quick health score for every asset — suitable for dashboard heatmaps."""
+    assets = session.exec(select(models.Asset).limit(limit)).all()
+    results = []
+    for asset in assets:
+        exposures = session.exec(
+            select(models.ExposureLog).where(models.ExposureLog.asset_id == asset.id)
+        ).all()
+        events = session.exec(
+            select(models.Event).where(models.Event.asset_id == asset.id)
+        ).all()
+        kpi = metrics.aggregate_kpis(exposures, events)
+        dt_split = manufacturing.compute_downtime_split(events)
+        perf = manufacturing.compute_performance_rate(exposures)
+        oee = manufacturing.compute_oee(kpi["availability"], perf.performance_rate)
+
+        hi = business.compute_health_index(
+            availability=kpi["availability"],
+            mtbf_hours=kpi["mtbf_hours"],
+            unplanned_ratio=dt_split.unplanned_ratio,
+            oee=oee.oee,
+        )
+        results.append(schemas.AssetHealthIndexOut(
+            score=hi.score, grade=hi.grade, components=hi.components,
+        ))
     return results

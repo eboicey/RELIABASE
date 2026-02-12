@@ -95,21 +95,33 @@ def derive_time_between_failures(exposures: Sequence[ExposureLog], failure_event
     return TbfResult(intervals_hours=intervals, censored_flags=censored)
 
 
+def compute_failure_rate_simple(failures: int, total_hours: float) -> float:
+    """Simple average failure rate: λ = failures / total operating hours."""
+    return failures / total_hours if total_hours > 0 else 0.0
+
+
 def aggregate_kpis(exposures: Sequence[ExposureLog], events: Sequence[Event]) -> dict:
-    """Compute MTBF/MTTR/availability based on exposure logs and events.
+    """Compute MTBF/MTTR/availability and extended metrics based on exposure logs and events.
 
     - MTBF uses time-between-failure intervals derived from exposure logs.
     - MTTR uses downtime_minutes on failure events (converted to hours).
+    - Failure rate, total exposure hours, and event counts included for downstream use.
     """
     failure_events = [e for e in events if e.event_type.lower() == "failure"]
     tbf = derive_time_between_failures(exposures, failure_events)
     mtbf_hours = compute_mtbf(tbf.intervals_hours)
     mttr_hours = compute_mttr([e.downtime_minutes for e in failure_events]) / 60 if failure_events else 0.0
     availability = compute_availability(mtbf_hours, mttr_hours)
+    total_hours = sum(e.hours for e in exposures if e.hours and e.hours > 0)
+    failure_rate = compute_failure_rate_simple(len(failure_events), total_hours)
     return {
         "mtbf_hours": mtbf_hours,
         "mttr_hours": mttr_hours,
         "availability": availability,
         "intervals_hours": tbf.intervals_hours,
         "censored_flags": tbf.censored_flags,
+        "failure_rate": failure_rate,
+        "total_exposure_hours": total_hours,
+        "failure_count": len(failure_events),
+        "total_events": len(events),
     }
