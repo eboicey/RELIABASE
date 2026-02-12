@@ -30,7 +30,9 @@ if _SRC_PATH not in sys.path:
     sys.path.insert(0, _SRC_PATH)
 
 # ── lazy imports (only available after path is set) ───────────────────────
-from reliabase.config import get_engine, init_db  # noqa: E402
+from reliabase.config import get_engine, init_db, DEFAULT_DB_PATH  # noqa: E402
+
+log.info("RELIABASE database path: %s", DEFAULT_DB_PATH)
 
 # Ensure tables exist on first import.
 init_db()

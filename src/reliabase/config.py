@@ -6,6 +6,7 @@ SQLite file for a local-first workflow.
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -16,18 +17,22 @@ from sqlmodel import SQLModel, create_engine
 load_dotenv()
 
 
+def _on_streamlit_cloud() -> bool:
+    """Detect Streamlit Cloud (read-only ``/mount/src``)."""
+    return os.path.isdir("/mount/src")
+
+
 def _default_db_path() -> Path:
     """Return a suitable default database file path.
 
     On Streamlit Cloud the repo checkout (``/mount/src/``) is **read-only**,
-    so we fall back to ``/tmp/reliabase.sqlite`` which is writable.
+    so we place the database in the system temp directory instead.
     """
     explicit = os.getenv("RELIABASE_DB")
     if explicit:
         return Path(explicit).resolve()
-    # Streamlit Cloud detection
-    if os.path.exists("/mount/src"):
-        return Path("/tmp/reliabase.sqlite")
+    if _on_streamlit_cloud():
+        return Path(tempfile.gettempdir()) / "reliabase.sqlite"
     return Path("./reliabase.sqlite").resolve()
 
 
@@ -48,7 +53,7 @@ def _current_echo() -> bool:
 
 def _is_testing() -> bool:
     """Return True when running under pytest (or RELIABASE_TESTING=true)."""
-    return os.getenv("RELIABASE_TESTING", "false").lower() == "true" or "pytest" in os.getenv("_", "")
+    return os.getenv("RELIABASE_TESTING", "false").lower() == "true"
 
 
 def get_engine(database_url: str | None = None):
@@ -57,7 +62,8 @@ def get_engine(database_url: str | None = None):
     The engine is created once per unique ``database_url`` and then reused.
     In application mode we use ``StaticPool`` so the same in-process
     connection is shared (important for Streamlit's single-process model).
-    In test mode we use ``NullPool`` so connections are released promptly.
+    In test mode or on Streamlit Cloud we use ``NullPool`` to avoid
+    connection lifetime issues.
     """
     db_url = database_url or _current_db_url()
 
@@ -65,12 +71,12 @@ def get_engine(database_url: str | None = None):
         return _engine_cache[db_url]
 
     connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
-    pool = NullPool if _is_testing() else StaticPool
+    use_null_pool = _is_testing() or _on_streamlit_cloud()
     engine = create_engine(
         db_url,
         echo=_current_echo(),
         connect_args=connect_args,
-        poolclass=pool,
+        poolclass=NullPool if use_null_pool else StaticPool,
     )
     _engine_cache[db_url] = engine
     return engine
