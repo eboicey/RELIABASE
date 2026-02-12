@@ -16,6 +16,7 @@ st.set_page_config(
 from _common import get_session  # noqa: E402
 
 from reliabase.services import AssetService, EventService, ExposureService, DemoService  # noqa: E402
+from reliabase.analytics import metrics, manufacturing, business  # noqa: E402
 
 
 def main():
@@ -66,6 +67,44 @@ def main():
     
     st.divider()
     
+    # Fleet Health Summary
+    st.subheader("Fleet Health Summary")
+    
+    if assets and events:
+        health_data = []
+        for asset in assets:
+            a_events = [e for e in events if e.asset_id == asset.id]
+            a_exposures = [e for e in exposures if e.asset_id == asset.id]
+            a_kpi = metrics.aggregate_kpis(a_exposures, a_events)
+            a_avail = a_kpi["availability"]
+            a_mtbf = a_kpi["mtbf_hours"]
+
+            dt_split = manufacturing.compute_downtime_split(a_events)
+            perf = manufacturing.compute_performance_rate(a_exposures)
+            oee_result = manufacturing.compute_oee(a_avail, perf.performance_rate)
+
+            hi = business.compute_health_index(
+                availability=a_avail,
+                mtbf_hours=a_mtbf,
+                unplanned_ratio=dt_split.unplanned_ratio,
+                oee=oee_result.oee,
+            )
+
+            health_data.append({
+                "Asset": f"#{asset.id} - {asset.name}",
+                "Health Score": hi.score,
+                "Grade": hi.grade,
+                "Availability": f"{a_avail * 100:.1f}%",
+                "MTBF (h)": f"{a_mtbf:.1f}",
+                "OEE": f"{oee_result.oee * 100:.1f}%",
+            })
+
+        st.dataframe(health_data, use_container_width=True, hide_index=True)
+    else:
+        st.info("Seed demo data from Operations to see fleet health.")
+    
+    st.divider()
+    
     # Recent Events
     st.subheader("Recent Events")
     
@@ -105,21 +144,23 @@ def main():
     
     with col1:
         st.markdown("""
-        **📈 Analytics**
+        **Analytics**
         
-        View MTBF, MTTR, availability metrics and failure mode Pareto charts.
+        View MTBF, MTTR, availability, Weibull analysis, OEE,
+        health index, RPN, and business impact metrics.
         """)
     
     with col2:
         st.markdown("""
-        **🛰 Operations**
+        **Operations**
         
-        Re-seed data, export tables to CSV, and manage the database.
+        Re-seed data, export CSVs, view spare parts forecast,
+        and monitor fleet bad actors.
         """)
     
     with col3:
         st.markdown("""
-        **📚 Reports**
+        **Reports**
         
         Generate Weibull analysis and PDF reports via CLI:
         ```bash

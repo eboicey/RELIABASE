@@ -1,4 +1,4 @@
-"""Operations page - Demo seeding, exports, and admin tasks."""
+"""Operations page - Demo seeding, exports, spare parts, and admin tasks."""
 import streamlit as st
 import pandas as pd
 
@@ -9,6 +9,9 @@ from _common import get_session  # noqa: E402
 from reliabase.services import (  # noqa: E402
     AssetService, EventService, ExposureService,
     FailureModeService, EventDetailService, PartService, DemoService,
+)
+from reliabase.analytics import (  # noqa: E402
+    metrics, reliability_extended, business, manufacturing,
 )
 
 
@@ -171,6 +174,106 @@ def main():
     
     st.divider()
     
+    # =====================================================================
+    # Spare Parts Demand Forecast
+    # =====================================================================
+    st.subheader("Spare Parts Demand Forecast")
+    st.caption("Projected part consumption over configurable horizon based on failure rates.")
+
+    with get_session() as session:
+        asset_svc = AssetService(session)
+        event_svc = EventService(session)
+        exposure_svc = ExposureService(session)
+        part_svc = PartService(session)
+
+        all_assets = asset_svc.list(limit=500)
+        all_events = event_svc.list(limit=500)
+        all_exposures = exposure_svc.list(limit=500)
+        all_parts = part_svc.list_parts(limit=500)
+
+    if all_assets and all_events:
+        horizon_months = st.slider("Forecast horizon (months)", min_value=1, max_value=24, value=6)
+
+        # Compute fleet-wide failure rate
+        total_exp = sum(e.hours or 0 for e in all_exposures)
+        total_failures = len([e for e in all_events if e.event_type == "failure"])
+        fleet_rate = total_failures / total_exp if total_exp > 0 else 0.01
+
+        # Build parts catalog for forecasting
+        parts_catalog = []
+        for p in all_parts:
+            parts_catalog.append({
+                "part_name": p.name,
+                "part_number": getattr(p, "part_number", "") or "",
+                "usage_per_failure": 1.0,
+            })
+
+        if parts_catalog:
+            forecast = business.forecast_spare_demand(
+                fleet_failure_rate=fleet_rate,
+                horizon_months=horizon_months,
+                parts_catalog=parts_catalog,
+            )
+
+            f_rows = []
+            for f in forecast.forecasts:
+                f_rows.append({
+                    "Part": f.part_name,
+                    "Part Number": f.part_number,
+                    "Expected Demand": f"{f.expected_demand:.1f}",
+                    "Safety Stock": f"{f.safety_stock:.0f}",
+                    "Reorder Qty": f"{f.reorder_quantity:.0f}",
+                })
+            st.dataframe(f_rows, use_container_width=True, hide_index=True)
+            st.caption(f"Fleet failure rate: {fleet_rate * 1000:.2f}/1,000h | Horizon: {horizon_months} months | Expected failures: {forecast.total_expected_failures:.1f}")
+        else:
+            st.info("Add parts in the Parts page to see spare demand forecast.")
+    else:
+        st.info("Seed demo data to compute spare parts demand.")
+
+    st.divider()
+
+    # =====================================================================
+    # Fleet Bad Actors (Quick View)
+    # =====================================================================
+    st.subheader("Fleet Bad Actors")
+    st.caption("Top underperforming assets at a glance.")
+
+    if all_assets and all_events:
+        ba_data = []
+        for asset in all_assets:
+            a_events = [e for e in all_events if e.asset_id == asset.id]
+            a_exposures = [e for e in all_exposures if e.asset_id == asset.id]
+            a_kpi = metrics.aggregate_kpis(a_exposures, a_events)
+            a_failures = [e for e in a_events if e.event_type == "failure"]
+            total_dt_hrs = sum((e.downtime_minutes or 0) for e in a_failures) / 60.0
+            ba_data.append({
+                "asset_id": asset.id,
+                "asset_name": asset.name,
+                "failure_count": len(a_failures),
+                "total_downtime_hours": total_dt_hrs,
+                "availability": a_kpi["availability"],
+            })
+
+        ranked = reliability_extended.rank_bad_actors(ba_data, top_n=5)
+        if ranked.entries:
+            ba_rows = []
+            for i, entry in enumerate(ranked.entries):
+                ba_rows.append({
+                    "Rank": i + 1,
+                    "Asset": entry.asset_name,
+                    "Failures": entry.failure_count,
+                    "Downtime (h)": f"{entry.total_downtime_hours:.1f}",
+                    "Availability": f"{entry.availability * 100:.1f}%",
+                })
+            st.dataframe(ba_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No ranking data available.")
+    else:
+        st.info("Seed demo data to see bad actors.")
+
+    st.divider()
+
     # CLI Commands Reference
     st.subheader("CLI Commands")
     st.markdown("Additional commands available from the terminal.")
