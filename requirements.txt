@@ -1,3 +1,7 @@
+# install the local reliabase package from source (ensures Streamlit Cloud
+# always uses the current version of the analytics / services code)
+.
+
 fastapi==0.99.1
 uvicorn[standard]==0.23.2
 sqlmodel==0.0.16
