@@ -357,7 +357,7 @@ def main():
         fmid = d.failure_mode_id
         if fmid not in fm_agg:
             fm_agg[fmid] = {
-                "failure_mode": next((m.name for m in failure_modes if m.id == fmid), f"Mode #{fmid}"),
+                "name": next((m.name for m in failure_modes if m.id == fmid), f"Mode #{fmid}"),
                 "count": 0,
                 "total_dt": 0.0,
             }
