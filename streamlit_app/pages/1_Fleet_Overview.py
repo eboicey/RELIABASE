@@ -279,28 +279,29 @@ def main():
                             help="How far ahead to forecast spare part demand.")
         fleet_rate = total_failures / total_exp
 
-        parts_catalog = [
+        # Build per-part failure-rate data from fleet rate
+        part_number_map = {p.name: getattr(p, "part_number", "") or "" for p in parts}
+        part_failure_data = [
             {
                 "part_name": p.name,
-                "part_number": getattr(p, "part_number", "") or "",
-                "usage_per_failure": 1.0,
+                "failure_rate_per_hour": fleet_rate,  # each part assumed 1 usage per failure
             }
             for p in parts
         ]
+        horizon_hours = horizon * 30 * 24  # approximate months → hours
 
         forecast = business.forecast_spare_demand(
-            fleet_failure_rate=fleet_rate,
-            horizon_months=horizon,
-            parts_catalog=parts_catalog,
+            part_failure_data=part_failure_data,
+            horizon_hours=horizon_hours,
         )
 
         f_rows = [
             {
                 "Part": f.part_name,
-                "Part Number": f.part_number,
-                "Expected Demand": f"{f.expected_demand:.1f}",
-                "Safety Stock": f"{f.safety_stock:.0f}",
-                "Reorder Qty": f"{f.reorder_quantity:.0f}",
+                "Part Number": part_number_map.get(f.part_name, ""),
+                "Expected Demand": f"{f.expected_failures:.1f}",
+                "Safety Stock": f"{max(f.upper_bound - f.expected_failures, 0):.0f}",
+                "Reorder Qty": f"{f.upper_bound:.0f}",
             }
             for f in forecast.forecasts
         ]

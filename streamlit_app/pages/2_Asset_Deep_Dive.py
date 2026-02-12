@@ -163,11 +163,12 @@ def main():
         )
         # B10 life
         b10 = reliability_extended.compute_b_life(weibull_fit.shape, weibull_fit.scale, 10.0)
+        reliability_at_b10 = 1.0 - b10.percentile / 100.0
         w4.metric(
-            "B10 Life", f"{b10.b_life_hours:.0f} h",
+            "B10 Life", f"{b10.life_hours:.0f} h",
             help=f"B10 life — the time by which {b10.percentile:.0f}% of units are expected to fail. "
                  "Used for warranty, PM scheduling, and spare parts planning. "
-                 f"Reliability at B10: {b10.reliability_at_b * 100:.1f}%",
+                 f"Reliability at B10: {reliability_at_b10 * 100:.1f}%",
         )
 
         # Confidence intervals

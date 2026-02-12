@@ -208,30 +208,31 @@ def main():
         total_failures = len([e for e in all_events if e.event_type == "failure"])
         fleet_rate = total_failures / total_exp if total_exp > 0 else 0.01
 
-        # Build parts catalog for forecasting
-        parts_catalog = []
-        for p in all_parts:
-            parts_catalog.append({
+        # Build per-part failure-rate data from fleet rate
+        part_number_map = {p.name: getattr(p, "part_number", "") or "" for p in all_parts}
+        part_failure_data = [
+            {
                 "part_name": p.name,
-                "part_number": getattr(p, "part_number", "") or "",
-                "usage_per_failure": 1.0,
-            })
+                "failure_rate_per_hour": fleet_rate,
+            }
+            for p in all_parts
+        ]
+        horizon_hours = horizon_months * 30 * 24  # approximate months → hours
 
-        if parts_catalog:
+        if part_failure_data:
             forecast = business.forecast_spare_demand(
-                fleet_failure_rate=fleet_rate,
-                horizon_months=horizon_months,
-                parts_catalog=parts_catalog,
+                part_failure_data=part_failure_data,
+                horizon_hours=horizon_hours,
             )
 
             f_rows = []
             for f in forecast.forecasts:
                 f_rows.append({
                     "Part": f.part_name,
-                    "Part Number": f.part_number,
-                    "Expected Demand": f"{f.expected_demand:.1f}",
-                    "Safety Stock": f"{f.safety_stock:.0f}",
-                    "Reorder Qty": f"{f.reorder_quantity:.0f}",
+                    "Part Number": part_number_map.get(f.part_name, ""),
+                    "Expected Demand": f"{f.expected_failures:.1f}",
+                    "Safety Stock": f"{max(f.upper_bound - f.expected_failures, 0):.0f}",
+                    "Reorder Qty": f"{f.upper_bound:.0f}",
                 })
             st.dataframe(f_rows, use_container_width=True, hide_index=True)
             st.caption(f"Fleet failure rate: {fleet_rate * 1000:.2f}/1,000h | Horizon: {horizon_months} months | Expected failures: {forecast.total_expected_failures:.1f}")
