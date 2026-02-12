@@ -176,7 +176,7 @@ def main():
             st.markdown(
                 f"- **Shape (β):** {ci.shape_ci[0]:.3f} – {ci.shape_ci[1]:.3f}  \n"
                 f"- **Scale (η):** {ci.scale_ci[0]:.1f} – {ci.scale_ci[1]:.1f} hours  \n"
-                f"- Method: Bootstrap ({ci.n_bootstrap} samples, {ci.confidence_level * 100:.0f}% CI)"
+                f"- Method: Bootstrap (200 samples, 95% CI)"
             )
 
         # Reliability curves
