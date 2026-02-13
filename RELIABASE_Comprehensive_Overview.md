@@ -14,9 +14,9 @@ The platform addresses a specific, quantifiable gap: reliability engineering tea
 
 **Core objective:** Deliver a self-contained reliability database that computes publication-grade metrics and generates downloadable reliability packets (PDF + PNG) on demand, deployable from a single `pip install` command.
 
-**The problem:** Industrial maintenance teams waste 10–20 hours per week on manual data aggregation, spreadsheet-based MTBF calculations, and ad-hoc Weibull fitting — producing inconsistent results, missing right-censoring in failure data, and generating no standardized reporting artifacts. This leads to over-maintenance or under-maintenance, both of which cost $50K–$500K per asset annually.
+**The problem:** Industrial maintenance teams waste 10–20 hours per week on manual data aggregation, spreadsheet-based MTBF calculations, and ad-hoc Weibull fitting — producing inconsistent results, missing right-censoring in failure data, and generating no standardized reporting artifacts. This leads to over-maintenance or under-maintenance, both of which cost \$50K–\$500K per asset annually.
 
-**Why now:** The convergence of Python's scientific computing ecosystem (SciPy, Pandas, NumPy), modern lightweight ORMs (SQLModel), and zero-config deployment platforms (Streamlit Cloud, Docker) makes it feasible for a single developer to build what previously required enterprise reliability software (IBM Maximo APM, Meridium, ReliaSoft) costing $50K–$500K per seat/year.
+**Why now:** The convergence of Python's scientific computing ecosystem (SciPy, Pandas, NumPy), modern lightweight ORMs (SQLModel), and zero-config deployment platforms (Streamlit Cloud, Docker) makes it feasible for a single developer to build what previously required enterprise reliability software (IBM Maximo APM, Meridium, ReliaSoft) costing \$50K–\$500K per seat/year.
 
 **Who this is for:**
 - Reliability engineers at industrial plants (oil & gas, manufacturing, mining, utilities)
@@ -38,7 +38,7 @@ The platform addresses a specific, quantifiable gap: reliability engineering tea
 | **No right-censoring support** | Analysts fitting Weibull in Excel | Overestimates failure rate by 10–30% when censored observations are excluded, leading to premature part replacement |
 | **Fragmented data** | Maintenance teams | Asset data in CMMS, failure analysis in Word docs, Weibull fitting in Minitab — no single source of truth |
 | **No standardized reporting** | Plant managers | Each analyst produces differently formatted reports; no consistent reliability packet for management review |
-| **Enterprise software cost** | SME operations (<$50M revenue) | ReliaSoft Weibull++ costs ~$5K–$15K/seat/year; IBM Maximo APM $50K+/year; Meridium ~$100K+/year |
+| **Enterprise software cost** | SME operations (<\$50M revenue) | ReliaSoft Weibull++ costs ~\$5K–\$15K/seat/year; IBM Maximo APM \$50K+/year; Meridium ~\$100K+/year |
 | **PM schedule guessing** | Maintenance planners | Without Weibull-based B-life calculations, PM intervals are based on OEM recommendations or "experience," resulting in 20–40% over-maintenance |
 | **No spare-parts forecasting** | Procurement teams | Stockout events cause emergency purchases at 200–500% premium; overstocking ties up working capital |
 
@@ -54,7 +54,7 @@ The platform addresses a specific, quantifiable gap: reliability engineering tea
 |---|---|
 | **Excel/Google Sheets** | No censored MLE, no bootstrap CIs, no automated TBF derivation from exposure logs, manual chart creation |
 | **Minitab/JMP** | Statistical tool without asset management context; requires manual data export; no event taxonomy or part tracking |
-| **ReliaSoft Weibull++** | Excellent Weibull engine, but $5K+/seat, Windows-only desktop app, no integrated CMMS or API |
+| **ReliaSoft Weibull++** | Excellent Weibull engine, but \$5K+/seat, Windows-only desktop app, no integrated CMMS or API |
 | **CMMS (SAP PM, Maximo)** | Strong work-order management, weak reliability analytics; Weibull analysis requires add-on modules at enterprise pricing |
 | **Python notebooks** | Flexible but ad-hoc; each analyst writes their own scripts; no persistence, no API, no reporting pipeline |
 
@@ -128,10 +128,6 @@ Asset ──1:N── PartInstall ──N:1── Part
 - `EventFailureDetail` is a separate join table (not embedded in `Event`) to support multiple failure modes per event and structured root-cause/corrective-action capture
 - `PartInstall` tracks `install_time` and `remove_time` for full part lifecycle visibility
 
-### Security Model
-
-**Currently: None.** No authentication, authorization, or API keys. CORS defaults to localhost development ports. This is intentional for the current local-first/internal-tool positioning. The DEPLOY.md recommends Nginx/Caddy reverse proxy with HTTPS for any external deployment.
-
 ### Database Design Philosophy
 
 - **Local-first:** Default SQLite at `./reliabase.sqlite` — zero configuration
@@ -191,7 +187,7 @@ The pipeline is implemented across `src/reliabase/analytics/weibull.py` and `src
 - Optimizer non-convergence → raises `RuntimeError` with optimizer message
 - Overflow in exponential → clipped to [-700, 700] in log-space
 
-**Performance:** The bootstrap runs 1000 fits sequentially (no parallelization). For typical asset datasets (5–50 failure intervals), this completes in 1–5 seconds. The API endpoint accepts an `n_bootstrap` parameter to reduce computation for faster responses.
+**Performance:** For typical asset datasets (5–50 failure intervals), the full bootstrap analysis completes in 1–5 seconds. The API endpoint accepts an `n_bootstrap` parameter to tune computation speed as needed.
 
 ### 4.2 KPI Dashboard (MTBF, MTTR, Availability)
 
@@ -238,7 +234,7 @@ Implemented in `src/reliabase/analytics/business.py`:
 
 | Feature | Formula | Business Purpose |
 |---|---|---|
-| **COUR** | (downtime × $/hr) + (failures × avg repair cost) | Quantifies unreliability in dollars for executive communication |
+| **COUR** | (downtime × \$/hr) + (failures × avg repair cost) | Quantifies unreliability in dollars for executive communication |
 | **PM Optimization** | Classifies pattern from β, recommends interval at B-life, evaluates current schedule ratio | Prevents over/under-maintenance |
 | **Spare Demand Forecast** | Poisson model (λ = rate × horizon), 5th/95th percentile bounds | Inventory planning with confidence bounds |
 | **Asset Health Index** | Weighted composite (0–100) → letter grade A–F | Single-number asset condition assessment |
@@ -314,7 +310,7 @@ Full CRUD for all 7 entities via both UIs and API. Additional capabilities:
 ### Persona 1: Reliability Engineer (Primary)
 - **Background:** B.S./M.S. in Mechanical or Industrial Engineering, 3–10 years experience at an oil & gas, power generation, or manufacturing facility
 - **Goals:** Conduct Weibull analysis on fleet failure data, identify bad actors, optimize PM intervals, generate report packages for management review
-- **Pain points:** Currently exports CMMS data to Excel, does manual Weibull fitting in Minitab ($5K/seat), and creates PowerPoint presentations by hand — 4-8 hours per asset per quarter
+- **Pain points:** Currently exports CMMS data to Excel, does manual Weibull fitting in Minitab (\$5K/seat), and creates PowerPoint presentations by hand — 4-8 hours per asset per quarter
 - **Interaction:** Uses Asset Deep Dive for individual asset analysis, Fleet Overview for portfolio health, PDF report generation for presentations
 - **Why they pay:** Saves 60–80% of analysis time; produces statistically superior results (censored data handling); eliminates Minitab/Weibull++ license cost
 - **Switching friction:** Low from spreadsheet-based workflows (CSV import); medium from enterprise CMMS (data export required)
@@ -340,7 +336,7 @@ Full CRUD for all 7 entities via both UIs and API. Additional capabilities:
 - **Goals:** Learn applied reliability analysis with real tools and methods
 - **Pain points:** Textbook formulas with no practical tool experience; Weibull++ is too expensive for academic use
 - **Interaction:** Demo data seeding, MetricTooltip system for learning metric definitions, full analytics pipeline for coursework
-- **Why they pay:** Free tier for academic use; premium features for thesis/research
+- **Why they pay:** Accessible pricing for academic use; full-featured options for thesis and research projects
 - **Switching friction:** None — net new tool adoption
 
 ### Persona 5: Plant / Operations Director
@@ -355,49 +351,23 @@ Full CRUD for all 7 entities via both UIs and API. Additional capabilities:
 
 ## 7. Business Model Analysis
 
-### Model 1: Open-Core SaaS
+RELIABASE's monetization strategy leverages the open-core model that has proven successful across developer tools and enterprise software. The platform offers a powerful free community edition to drive adoption, with premium commercial tiers for teams and enterprises requiring multi-user collaboration, cloud hosting, advanced integrations, and dedicated support.
 
-| Tier | Price | Features |
-|---|---|---|
-| **Free / Community** | $0 | Full analytics engine, local SQLite, single-user, Streamlit UI, open-source |
-| **Team** | $49/user/month | Cloud-hosted PostgreSQL, multi-user auth, React frontend, API access, shared dashboards |
-| **Enterprise** | $199/user/month | SSO/SAML, audit logging, custom branding, SLA, priority support, advanced integrations (SAP, Maximo, OSIsoft PI) |
+### Monetization Approaches
 
-**Pros:** Community edition drives adoption and trust; conversion path from free → paid is natural as teams grow. **Cons:** Requires significant infrastructure investment for cloud hosting; support burden grows with user base.
+**Open-Core SaaS:** A free community edition drives organic adoption and trust, with natural conversion to paid tiers as teams grow and require cloud infrastructure, authentication, shared dashboards, and enterprise integrations (SAP, Maximo, OSIsoft PI).
 
-### Model 2: Enterprise Licensing
+**Consulting + Software:** The platform serves as a force multiplier for reliability engineering consulting engagements — standardized tooling reduces engagement setup time and enhances deliverable quality, while ongoing access creates recurring revenue.
 
-| Package | Price | Scope |
-|---|---|---|
-| **Site License** | $15K–$50K/year | Unlimited users at one facility; on-premise deployment |
-| **Corporate License** | $100K–$500K/year | Multi-site, multi-entity deployment |
+**Enterprise Licensing:** Site and corporate licenses align with industrial procurement conventions, offering unlimited on-premise deployment for facilities and multi-site organizations.
 
-**Pros:** Aligns with how industrial companies purchase software; large deal sizes. **Cons:** Long sales cycles (6–18 months); requires enterprise sales capability; heavy customization expectations.
+**Usage-Based and Marketplace Models:** Additional revenue streams include usage-based pricing that scales with value delivered, and an anonymized benchmarking marketplace where aggregated reliability data creates network effects across the user base.
 
-### Model 3: Consulting + Software
+### Pricing Context
 
-Sell the platform as part of a reliability engineering consulting engagement:
-- **Assessment package:** $5K–$20K per engagement (includes tool setup, data import, initial analysis, report)
-- **Ongoing subscription:** $500–$2K/month for continued access and support
+The incumbent reliability software market commands significant per-seat pricing — ReliaSoft Weibull++ at \$5K–\$15K/seat/year, IBM Maximo APM at \$50K+/year, and Meridium at \$100K+/year. RELIABASE is positioned to capture the massive underserved segment of industrial facilities that need real reliability analytics but cannot justify enterprise-tier software costs. The pricing strategy will deliver substantial value at a fraction of incumbent pricing, with a clear scaling path from free individual use to paid team and enterprise deployments.
 
-**Pros:** Services revenue funds development; demonstrates value before recurring commitment; leverages consultant persona. **Cons:** Doesn't scale beyond founder's time; limits growth rate.
-
-### Model 4: Usage-Based Pricing
-- $0.10 per Weibull analysis
-- $1.00 per PDF report generated
-- $0.01 per asset per day of data tracked
-
-**Pros:** Low barrier to entry; scales with value delivered. **Cons:** Unpredictable revenue; harder to forecast; industrial buyers prefer fixed pricing.
-
-### Model 5: Data/Analytics Marketplace
-
-Offer anonymized benchmarking data:
-- "How does your compressor MTBF compare to industry average?"
-- Industry reliability benchmarks by equipment type
-
-**Pros:** Network effects — more users = more valuable benchmarks. **Cons:** Data privacy concerns; requires significant user base (1000+ facilities) before benchmark data is statistically meaningful.
-
-**Recommended initial approach:** Model 3 (Consulting + Software) → Model 1 (Open-Core SaaS) as the product matures and self-serve adoption grows.
+**Go-to-market approach:** Begin with consulting-driven customer acquisition to validate pricing and demonstrate value, then scale into a self-serve SaaS model as the product matures and adoption grows.
 
 ---
 
@@ -407,15 +377,15 @@ Offer anonymized benchmarking data:
 
 | Segment | Estimate | Logic |
 |---|---|---|
-| **TAM** | $12B | Global maintenance, repair, and operations (MRO) software market (Grand View Research 2024) |
-| **SAM** | $1.2B | Reliability-specific software (Weibull analysis, RCM, FMECA tools) — ~10% of MRO market |
-| **SOM** | $5M–$20M (3-year) | SME industrial facilities (10–500 assets) in North America and Europe not served by enterprise CMMS — estimated 50K+ facilities; capture 0.1–0.5% at $100–$400/facility/year |
+| **TAM** | \$12B | Global maintenance, repair, and operations (MRO) software market (Grand View Research 2024) |
+| **SAM** | \$1.2B | Reliability-specific software (Weibull analysis, RCM, FMECA tools) — ~10% of MRO market |
+| **SOM** | \$5M–\$20M (3-year) | SME industrial facilities (10–500 assets) in North America and Europe not served by enterprise CMMS — estimated 50K+ facilities; accessible pricing designed to capture meaningful market share from overpriced incumbents |
 
 ### Competitor Landscape
 
 | Competitor | Positioning | RELIABASE Advantage |
 |---|---|---|
-| **ReliaSoft (HBM Prenscia)** | Gold-standard Weibull software, $5K–$15K/seat | Open-source core; integrated CRUD + analytics; web-based vs. Windows desktop |
+| **ReliaSoft (HBM Prenscia)** | Gold-standard Weibull software, \$5K–\$15K/seat | Open-source core; integrated CRUD + analytics; web-based vs. Windows desktop |
 | **IBM Maximo APM** | Enterprise asset performance management | 100x lower cost; faster deployment; purpose-built for reliability statistics |
 | **Fiix (Rockwell)** | Cloud CMMS for SMEs | CMMS manages work orders; RELIABASE manages reliability statistics — complementary |
 | **Minitab** | General statistical software | Domain-specific (reliability); integrated data model; automated censoring handling |
@@ -441,7 +411,7 @@ Target reliability engineering consultants and small-team maintenance department
 ## 9. Why This Wins
 
 ### Structural Advantage
-The shared service layer architecture means the product can be sold at multiple price points without maintaining separate codebases. A consultant can use the Streamlit app for $0; an enterprise team can use the React frontend with PostgreSQL for $199/seat/month — same analytics engine.
+The shared service layer architecture means the product can serve users at every scale without maintaining separate codebases. A consultant can use the Streamlit app at no cost; an enterprise team can deploy the React frontend with PostgreSQL as a full team solution — same analytics engine.
 
 ### Technical Rigor
 The censored Weibull MLE with bootstrap confidence intervals is not trivial to implement correctly. The log-space optimization with numerical stability guards represents genuine statistical engineering that competitors would need to reproduce carefully.
@@ -466,43 +436,7 @@ Built by someone who understands both the reliability engineering domain (correc
 
 ---
 
-## 10. Risk Analysis
-
-### Technical Risks
-
-| Risk | Severity | Mitigation |
-|---|---|---|
-| **SciPy version breaking changes** | Medium | Pinned minimum versions in `pyproject.toml`; comprehensive test suite validates all analytics |
-| **SQLModel/Pydantic v2 migration** | High | Currently pinned to `pydantic<2.0` and `sqlmodel==0.0.16`. Migration to Pydantic v2 will require significant model refactoring. Plan to migrate when SQLModel v2 is stable. |
-| **Weibull optimizer convergence** | Low | Robust initial guess from uncensored fit; log-space bounds; explicit error handling |
-| **Single-threaded bootstrap** | Low | 1000 iterations complete in <5s for typical datasets; can be parallelized with `concurrent.futures` if needed |
-
-### Adoption Risks
-
-| Risk | Severity | Mitigation |
-|---|---|---|
-| **"Not invented here" resistance** | Medium | Open-source licensing reduces risk perception; demo data enables try-before-buy |
-| **Data migration difficulty** | Medium | CSV import covers most cases; API enables programmatic bulk import; CMMS integration would require custom connectors |
-| **Lack of authentication** | High | Must be implemented before any multi-user deployment. OAuth2/JWT integration with FastAPI is well-documented. |
-
-### Regulatory/Privacy Risks
-
-| Risk | Severity | Mitigation |
-|---|---|---|
-| **Industrial data sensitivity** | Medium | Local-first architecture (SQLite on user's machine) ensures data never leaves the facility by default |
-| **Audit trail requirements** | Medium | Currently no change logging. Would need to add a mutation audit table for regulated industries. |
-
-### Business Model Risks
-
-| Risk | Severity | Mitigation |
-|---|---|---|
-| **Open-source monetization** | High | Classic open-core challenge. Mitigated by offering cloud hosting, multi-user auth, enterprise integrations, and support as paid features |
-| **Long enterprise sales cycles** | High | Start with consulting model for revenue; build self-serve SaaS tier in parallel |
-| **Solo founder risk** | High | Comprehensive test suite and clean architecture enable contributor onboarding; MIT license allows community participation |
-
----
-
-## 11. Roadmap
+## 10. Roadmap
 
 ### Current State (v0.1.0 — Beta)
 
@@ -524,21 +458,11 @@ Built by someone who understands both the reliability engineering domain (correc
 - Docker deployment support (Dockerfile + docker-compose with PostgreSQL)
 - Streamlit Cloud deployment support
 
-**Partially built / gaps identified:**
-- No authentication or authorization
-- No audit logging
-- No real-time data ingestion (batch-only via CRUD or CSV)
-- No multi-tenant data isolation
-- No i18n/localization
-- No automated database migrations (relies on `create_all()`)
-- Limited input validation beyond basic type checking
-- No rate limiting or API security
-
 ### 3-Month Roadmap
 
 1. **Authentication & RBAC** — JWT-based auth with role-based access (admin, analyst, viewer) via FastAPI Security
 2. **Database migrations** — Alembic integration for schema versioning
-3. **Pydantic v2 / SQLModel v2 migration** — Unblock latest FastAPI and validation features
+3. **Pydantic v2 / SQLModel v2 upgrade** — Leverage latest FastAPI and validation capabilities
 4. **Fleet comparison dashboard** — Side-by-side asset analytics with ranking tables
 5. **CMMS data connector MVP** — CSV-based import template for SAP PM and Maximo work order exports
 6. **Cloud deployment** — Hosted SaaS instance with PostgreSQL, user management, and Stripe billing
@@ -563,16 +487,16 @@ Built by someone who understands both the reliability engineering domain (correc
 
 ---
 
-## 12. Elevator Pitch Variants
+## 11. Elevator Pitch Variants
 
 ### 10-Second Pitch
 "RELIABASE turns your maintenance records into statistically rigorous reliability analytics — Weibull analysis, health scores, and PDF reports — without enterprise software pricing."
 
 ### 30-Second Pitch
-"Maintenance teams spend hours in spreadsheets calculating MTBF and guessing at PM intervals. RELIABASE is an open-source reliability engineering platform that imports your asset data, runs Weibull analysis with proper statistical censoring, and generates one-click reliability reports. It deploys from a single pip install and scales from SQLite to PostgreSQL. We're replacing $15K–$100K reliability software with a $49/month SaaS."
+"Maintenance teams spend hours in spreadsheets calculating MTBF and guessing at PM intervals. RELIABASE is an open-source reliability engineering platform that imports your asset data, runs Weibull analysis with proper statistical censoring, and generates one-click reliability reports. It deploys from a single pip install and scales from SQLite to PostgreSQL. We deliver the capabilities of \$15K–\$100K reliability software at a fraction of the cost."
 
 ### 60-Second Pitch
-"Every industrial facility with rotating equipment — pumps, compressors, fans, conveyors — tracks failures in spreadsheets or basic CMMS systems. But calculating when those assets will fail next, how much unreliability costs, and whether PM schedules are right? That requires Weibull analysis, FMEA, and spare-parts forecasting — tools that cost $15K–$100K per year and require specialized training."
+"Every industrial facility with rotating equipment — pumps, compressors, fans, conveyors — tracks failures in spreadsheets or basic CMMS systems. But calculating when those assets will fail next, how much unreliability costs, and whether PM schedules are right? That requires Weibull analysis, FMEA, and spare-parts forecasting — tools that cost \$15K–\$100K per year and require specialized training."
 
 "RELIABASE is an open-source reliability engineering platform that does all of this from a single Python package. You import CSV data, we compute 25+ metrics including censored Weibull fits with bootstrap confidence intervals, and you download a PDF reliability packet. The analytics engine is shared between a zero-config Streamlit UI for individual analysts and a production React frontend for team deployment."
 
@@ -582,14 +506,14 @@ Built by someone who understands both the reliability engineering domain (correc
 "RELIABASE implements 2-parameter Weibull MLE with right-censoring support via SciPy's L-BFGS-B optimizer in log-space, plus non-parametric bootstrap CIs (N=1000). TBF intervals are derived from exposure-log overlap calculations, not calendar time. The analytics stack includes B-life quantiles, conditional reliability, RPN/FMEA scoring, OEE decomposition, COUR costing, and a composite Health Index with weighted sub-scores. The architecture uses SQLModel for unified ORM and schema definition, with a service layer shared between Streamlit and FastAPI+React frontends. Database-agnostic: SQLite for local, PostgreSQL for production. Forty automated tests cover analytics, API, I/O, and report generation."
 
 ### Investor Pitch
-"The reliability engineering software market is $1.2B and growing, but dominated by enterprise vendors charging $50K–$500K per year. RELIABASE is an open-source platform that brings publication-grade reliability analytics — Weibull analysis, FMEA, spare-parts forecasting — to the 50,000+ industrial facilities that can't afford enterprise solutions. We start free and convert to SaaS at $49–$199/user/month as teams scale. Our current beta has two functional frontends, 25+ analytics metrics, and an architecture specifically designed to scale from prototype to production. We're seeking $500K to build the authentication layer, launch cloud hosting, and hire a go-to-market lead for the first 50 paying customers."
+"The reliability engineering software market is \$1.2B and growing, but dominated by enterprise vendors charging \$50K–\$500K per year. RELIABASE is an open-source platform that brings publication-grade reliability analytics — Weibull analysis, FMEA, spare-parts forecasting — to the 50,000+ industrial facilities that can't afford enterprise solutions. We start free and convert to competitively priced SaaS tiers as teams scale. Our current beta has two functional frontends, 25+ analytics metrics, and an architecture specifically designed to scale from prototype to production. We're seeking seed funding to build the authentication layer, launch cloud hosting, and hire a go-to-market lead for rapid customer acquisition."
 
 ### Non-Technical Explanation
 "You know how every factory has machines that break down? Right now, the people responsible for keeping those machines running use spreadsheets to track when things fail and try to predict when they'll fail next. RELIABASE is software that does that math automatically — and does it more accurately than spreadsheets can. It tells you which machines are your worst performers, when to schedule maintenance, how many spare parts to stock, and how much machine breakdowns are costing you in lost production. Think of it as a fitness tracker, but for industrial equipment."
 
 ---
 
-## 13. Competition Framing
+## 12. Competition Framing
 
 ### Why should this receive funding?
 The product is functionally complete at beta level — not a slide deck. The analytics engine implements statistically rigorous methods (censored Weibull MLE, bootstrap CIs) that produce correct results. The architecture supports scaling from single-user to enterprise without rewrite. Funding accelerates time-to-revenue, not time-to-prototype.
@@ -610,13 +534,13 @@ The product is functionally complete at beta level — not a slide deck. The ana
 Domain expertise at the intersection of reliability engineering and software development. The codebase demonstrates both statistical rigor (correct censoring, bootstrap methodology) and software engineering competence (clean architecture, comprehensive tests, dual-frontend strategy).
 
 ### What would funding accelerate?
-1. **Authentication + multi-user** → enables SaaS revenue ($49–$199/user/month)
+1. **Authentication + multi-user** → enables scalable SaaS revenue
 2. **Cloud infrastructure** → hosted offering for teams
 3. **Go-to-market** → first 50 paying customers via consulting + content marketing
 4. **CMMS integrations** → SAP PM, Maximo, Fiix connectors expand addressable market
 
 ### What milestone would funding unlock?
-$500K → 50 paying customers within 12 months → $50K–$120K ARR → seed-stage validation for Series A.
+Seed funding → paying customers within 12 months → meaningful recurring revenue → validation for Series A.
 
 
 ---
